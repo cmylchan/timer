@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { HomeScreen } from './components/HomeScreen'
+import {
+  HomeScreen,
+  type NewWorkoutOptions,
+} from './components/HomeScreen'
 import { TimerScreen } from './components/TimerScreen'
 import { WorkoutEditor } from './components/WorkoutEditor'
 import {
@@ -9,8 +12,7 @@ import {
 } from './data/presets'
 import {
   cloneWorkout,
-  createCircuitBlock,
-  createPhaseBlock,
+  createId,
 } from './lib/workout'
 import {
   createCustomWorkoutHash,
@@ -26,15 +28,65 @@ function getInitialHashResult() {
   return readWorkoutHash(window.location.hash)
 }
 
-function makeStarterWorkout(): Workout {
+function makeStarterWorkout(options: NewWorkoutOptions): Workout {
+  if (options.source === 'blank') {
+    return {
+      id: createId('custom'),
+      name: options.name,
+      scheduledDay: options.scheduledDay,
+      blocks: [],
+    }
+  }
+
+  if (options.source === 'standard') {
+    return {
+      id: createId('custom'),
+      name: options.name,
+      scheduledDay: options.scheduledDay,
+      blocks: [
+        {
+          id: createId('phase'),
+          type: 'phase',
+          name: 'Run / stretch',
+          durationSeconds: 25 * 60,
+          tone: 'warmup',
+        },
+        {
+          id: createId('phase'),
+          type: 'phase',
+          name: 'Set up equipment',
+          durationSeconds: 5 * 60,
+          tone: 'setup',
+        },
+        {
+          id: createId('circuit'),
+          type: 'circuit',
+          name: 'Circuit',
+          rounds: 3,
+          workSeconds: 45,
+          restSeconds: 15,
+          exercises: Array.from({ length: 4 }, (_, index) => ({
+            id: createId('exercise'),
+            name: `Exercise ${index + 1}`,
+            roundCues: [],
+          })),
+        },
+        {
+          id: createId('phase'),
+          type: 'phase',
+          name: 'Put equipment away',
+          durationSeconds: 5 * 60,
+          tone: 'cleanup',
+        },
+      ],
+    }
+  }
+
+  const source = PRESET_WORKOUTS[options.copySlug]
   return {
-    id: 'custom-starter',
-    name: 'My HIIT workout',
-    blocks: [
-      createPhaseBlock('Warm up', 5 * 60, 'warmup'),
-      createCircuitBlock(),
-      createPhaseBlock('Cool down', 5 * 60, 'cleanup'),
-    ],
+    ...cloneWorkout(source),
+    name: options.name,
+    scheduledDay: options.scheduledDay,
   }
 }
 
@@ -69,17 +121,30 @@ function App() {
         : fallbackSlug
 
   const selectPreset = (slug: PresetSlug) => {
-    window.location.hash = createPresetHash(slug)
-    setScreen('home')
+    const hash = createPresetHash(slug)
+    window.location.hash = hash
+    setHashResult({
+      kind: 'preset',
+      slug,
+      workout: PRESET_WORKOUTS[slug],
+    })
   }
 
-  const startEditing = () => {
-    setEditorWorkout(cloneWorkout(selectedWorkout))
+  const startWorkout = (slug: PresetSlug | null) => {
+    if (slug) {
+      selectPreset(slug)
+    }
+    setScreen('timer')
+  }
+
+  const startEditing = (slug: PresetSlug | null) => {
+    const workout = slug ? PRESET_WORKOUTS[slug] : selectedWorkout
+    setEditorWorkout(cloneWorkout(workout))
     setScreen('editor')
   }
 
-  const createWorkout = () => {
-    setEditorWorkout(makeStarterWorkout())
+  const createWorkout = (options: NewWorkoutOptions) => {
+    setEditorWorkout(makeStarterWorkout(options))
     setScreen('editor')
   }
 
@@ -155,9 +220,8 @@ function App() {
         )
         setHashResult({ kind: 'empty' })
       }}
-      onSelectPreset={selectPreset}
-      onStart={() => setScreen('timer')}
-      onEdit={startEditing}
+      onStartWorkout={startWorkout}
+      onEditWorkout={startEditing}
       onCreate={createWorkout}
       onCopyLink={copyLink}
     />

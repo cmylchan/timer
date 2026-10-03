@@ -3,13 +3,13 @@ import type { PresetSlug, Workout } from '../types/workout'
 export const PRESET_WORKOUTS: Record<PresetSlug, Workout> = {
   tuesday: {
     id: 'preset-tuesday',
-    name: 'Tuesday strength',
+    name: 'Tuesday arms',
     scheduledDay: 'Tuesday',
     blocks: [
       {
         id: 'tuesday-run',
         type: 'phase',
-        name: 'Run + stretch',
+        name: 'Run / stretch',
         durationSeconds: 25 * 60,
         tone: 'warmup',
       },
@@ -40,7 +40,7 @@ export const PRESET_WORKOUTS: Record<PresetSlug, Workout> = {
           },
           {
             id: 'tuesday-triceps',
-            name: 'Triceps',
+            name: 'Tricep extension',
             roundCues: ['5 lb', '5 lb', '5 lb'],
           },
           {
@@ -61,13 +61,13 @@ export const PRESET_WORKOUTS: Record<PresetSlug, Workout> = {
   },
   wednesday: {
     id: 'preset-wednesday',
-    name: 'Wednesday conditioning',
+    name: 'Wednesday bodyweight',
     scheduledDay: 'Wednesday',
     blocks: [
       {
         id: 'wednesday-run',
         type: 'phase',
-        name: 'Run + stretch',
+        name: 'Run / stretch',
         durationSeconds: 25 * 60,
         tone: 'warmup',
       },
@@ -88,7 +88,7 @@ export const PRESET_WORKOUTS: Record<PresetSlug, Workout> = {
         exercises: [
           {
             id: 'wednesday-pullups',
-            name: 'Pullups',
+            name: 'Pull-ups',
             roundCues: [],
           },
           {
@@ -98,7 +98,7 @@ export const PRESET_WORKOUTS: Record<PresetSlug, Workout> = {
           },
           {
             id: 'wednesday-pushups',
-            name: 'Pushups',
+            name: 'Push-ups',
             roundCues: [],
           },
           {
@@ -125,7 +125,7 @@ export const PRESET_WORKOUTS: Record<PresetSlug, Workout> = {
       {
         id: 'friday-run',
         type: 'phase',
-        name: 'Run + stretch',
+        name: 'Run / stretch',
         durationSeconds: 25 * 60,
         tone: 'warmup',
       },

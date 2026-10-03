@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { formatLongDuration } from '../lib/format'
+import { formatDuration, formatLongDuration } from '../lib/format'
 import {
   WORKOUT_LIMITS,
+  calculateBlockDuration,
   calculateWorkoutDuration,
   createCircuitBlock,
   createId,
@@ -10,6 +11,7 @@ import {
 } from '../lib/workout'
 import {
   PHASE_TONES,
+  WEEKDAYS,
   type CircuitBlock,
   type CircuitExercise,
   type TimedPhaseBlock,
@@ -24,6 +26,7 @@ import {
   TrashIcon,
   UpIcon,
 } from './Icons'
+import { WorkoutStrip } from './WorkoutStrip'
 
 interface WorkoutEditorProps {
   initialWorkout: Workout
@@ -440,6 +443,60 @@ function CircuitEditor({
   )
 }
 
+function getEquipment(workout: Workout) {
+  const weights = new Map<number, string>()
+  let needsMat = false
+  let needsJumpRope = false
+
+  workout.blocks.forEach((block) => {
+    if (block.type !== 'circuit') {
+      return
+    }
+    block.exercises.forEach((exercise) => {
+      if (/plank|v-sit/i.test(exercise.name)) {
+        needsMat = true
+      }
+      if (/jump rope/i.test(exercise.name)) {
+        needsJumpRope = true
+      }
+      exercise.roundCues.forEach((cue) => {
+        if (!/^\d+(?:\.\d+)?\s*lb$/i.test(cue.trim())) {
+          return
+        }
+        const value = Number.parseFloat(cue)
+        if (Number.isFinite(value)) {
+          weights.set(value, cue.trim())
+        }
+      })
+    })
+  })
+
+  const equipment = [...weights.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([, value]) => `${value} dumbbells`)
+  if (needsMat) {
+    equipment.push('Mat')
+  }
+  if (needsJumpRope) {
+    equipment.push('Jump rope')
+  }
+  return equipment
+}
+
+function blockLabel(block: WorkoutBlock) {
+  if (block.type === 'circuit') {
+    return 'Circuit'
+  }
+  const labels: Record<TimedPhaseBlock['tone'], string> = {
+    warmup: 'Warm-up',
+    setup: 'Setup',
+    recovery: 'Recovery',
+    cleanup: 'Cleanup',
+    custom: 'Timed block',
+  }
+  return labels[block.tone]
+}
+
 export function WorkoutEditor({
   initialWorkout,
   onCancel,
@@ -450,6 +507,7 @@ export function WorkoutEditor({
   const issues = useMemo(() => validateWorkout(draft), [draft])
   const duration =
     issues.length === 0 ? calculateWorkoutDuration(draft) : null
+  const equipment = useMemo(() => getEquipment(draft), [draft])
 
   const updateBlock = (index: number, block: WorkoutBlock) => {
     setDraft((current) => {
@@ -493,163 +551,215 @@ export function WorkoutEditor({
 
   return (
     <main className="editor-shell">
-      <header className="editor-header">
-        <button
-          className="button button-quiet"
-          type="button"
-          onClick={onCancel}
-        >
+      <header className="editor-toolbar">
+        <button className="editor-back" type="button" onClick={onCancel}>
           <ArrowLeftIcon />
-          Back
+          Workouts
         </button>
-        <div className="editor-title">
-          <span className="eyebrow">Workout builder</span>
-          <h1>Make every second yours.</h1>
-          <p>
-            Build a sequence, create its link, then bookmark it on any device.
-          </p>
-        </div>
-        <div className="editor-total">
-          <span>Total time</span>
-          <strong>{duration === null ? '—' : formatLongDuration(duration)}</strong>
-        </div>
+        <h1 className="sr-only">Edit workout</h1>
+        <button
+          className="button button-heat"
+          type="submit"
+          form="workout-editor-form"
+          aria-label="Create workout link"
+          disabled={issues.length > 0}
+        >
+          Save
+        </button>
       </header>
 
-      <form className="editor-form" onSubmit={handleSubmit} noValidate>
-        {(submitError || issues.length > 0) && (
-          <div className="validation-banner" role="alert">
-            <strong>
-              {submitError ??
-                `${issues.length} ${
-                  issues.length === 1 ? 'field needs' : 'fields need'
-                } attention.`}
-            </strong>
-            {issues.length > 0 && (
-              <span>{issues[0].message}</span>
-            )}
-          </div>
-        )}
-
-        <section className="panel editor-name-panel">
-          <Field
-            label="Workout name"
-            error={fieldError(issues, 'name')}
-          >
-            <input
-              className="workout-name-input"
-              value={draft.name}
-              maxLength={WORKOUT_LIMITS.maxNameLength}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  name: event.target.value,
-                }))
-              }
-            />
-          </Field>
-        </section>
-
-        <div className="block-list">
-          {draft.blocks.map((block, index) => (
-            <section className="panel block-editor" key={block.id}>
-              <div className="block-header">
-                <div>
-                  <span className="block-number">
-                    Block {index + 1}
-                  </span>
-                  <h2>
-                    {block.type === 'phase' ? 'Timed phase' : 'Circuit'}
-                  </h2>
-                </div>
-                <BlockActions
-                  index={index}
-                  total={draft.blocks.length}
-                  onMove={moveBlock}
-                  onRemove={removeBlock}
-                />
+      <form
+        className="editor-form"
+        id="workout-editor-form"
+        onSubmit={handleSubmit}
+        noValidate
+      >
+        <div className="editor-workspace">
+          <div className="editor-main-column">
+            {(submitError || issues.length > 0) && (
+              <div className="validation-banner" role="alert">
+                <strong>
+                  {submitError ??
+                    `${issues.length} ${
+                      issues.length === 1 ? 'field needs' : 'fields need'
+                    } attention.`}
+                </strong>
+                {issues.length > 0 && <span>{issues[0].message}</span>}
               </div>
-              {block.type === 'phase' ? (
-                <PhaseEditor
-                  block={block}
-                  index={index}
-                  issues={issues}
-                  onChange={(nextBlock) => updateBlock(index, nextBlock)}
+            )}
+
+            <section className="editor-name-panel">
+              <Field
+                label="Workout name"
+                error={fieldError(issues, 'name')}
+              >
+                <input
+                  className="workout-name-input"
+                  value={draft.name}
+                  maxLength={WORKOUT_LIMITS.maxNameLength}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
                 />
-              ) : (
-                <CircuitEditor
-                  block={block}
-                  index={index}
-                  issues={issues}
-                  onChange={(nextBlock) => updateBlock(index, nextBlock)}
-                />
-              )}
+              </Field>
+              <div className="editor-day-row">
+                <span>Repeat on</span>
+                <div className="day-picker">
+                  {WEEKDAYS.slice(1).concat(WEEKDAYS[0]).map((day) => (
+                    <button
+                      className="day-button"
+                      data-selected={draft.scheduledDay === day || undefined}
+                      type="button"
+                      key={day}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          scheduledDay:
+                            current.scheduledDay === day ? undefined : day,
+                        }))
+                      }
+                      aria-pressed={draft.scheduledDay === day}
+                      aria-label={day}
+                    >
+                      {day.charAt(0)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </section>
-          ))}
-        </div>
 
-        {fieldError(issues, 'blocks') && (
-          <p className="field-error block-error">
-            {fieldError(issues, 'blocks')}
-          </p>
-        )}
+            <div className="block-list">
+              {draft.blocks.map((block, index) => (
+                <section className="block-editor" key={block.id}>
+                  <div className="block-header">
+                    <div className="block-identity">
+                      <span
+                        className="block-color"
+                        data-tone={
+                          block.type === 'circuit' ? 'work' : block.tone
+                        }
+                      />
+                      <div>
+                        <span className="block-number">
+                          {blockLabel(block)}
+                        </span>
+                        <h2>{block.name}</h2>
+                      </div>
+                    </div>
+                    <BlockActions
+                      index={index}
+                      total={draft.blocks.length}
+                      onMove={moveBlock}
+                      onRemove={removeBlock}
+                    />
+                  </div>
+                  {block.type === 'phase' ? (
+                    <PhaseEditor
+                      block={block}
+                      index={index}
+                      issues={issues}
+                      onChange={(nextBlock) =>
+                        updateBlock(index, nextBlock)
+                      }
+                    />
+                  ) : (
+                    <CircuitEditor
+                      block={block}
+                      index={index}
+                      issues={issues}
+                      onChange={(nextBlock) =>
+                        updateBlock(index, nextBlock)
+                      }
+                    />
+                  )}
+                </section>
+              ))}
+            </div>
 
-        <div className="add-blocks">
-          <button
-            className="button button-dashed"
-            type="button"
-            disabled={draft.blocks.length >= WORKOUT_LIMITS.maxBlocks}
-            onClick={() =>
-              setDraft((current) => ({
-                ...current,
-                blocks: [...current.blocks, createPhaseBlock()],
-              }))
-            }
-          >
-            <PlusIcon />
-            Add timed phase
-          </button>
-          <button
-            className="button button-dashed"
-            type="button"
-            disabled={draft.blocks.length >= WORKOUT_LIMITS.maxBlocks}
-            onClick={() =>
-              setDraft((current) => ({
-                ...current,
-                blocks: [...current.blocks, createCircuitBlock()],
-              }))
-            }
-          >
-            <PlusIcon />
-            Add circuit
-          </button>
-        </div>
+            {fieldError(issues, 'blocks') && (
+              <p className="field-error block-error">
+                {fieldError(issues, 'blocks')}
+              </p>
+            )}
 
-        <footer className="editor-footer">
-          <div>
-            <strong>
+            <div className="add-blocks">
+              <button
+                className="button button-dashed"
+                type="button"
+                disabled={draft.blocks.length >= WORKOUT_LIMITS.maxBlocks}
+                onClick={() =>
+                  setDraft((current) => ({
+                    ...current,
+                    blocks: [...current.blocks, createPhaseBlock()],
+                  }))
+                }
+              >
+                <PlusIcon />
+                Timed block
+              </button>
+              <button
+                className="button button-dashed"
+                type="button"
+                disabled={draft.blocks.length >= WORKOUT_LIMITS.maxBlocks}
+                onClick={() =>
+                  setDraft((current) => ({
+                    ...current,
+                    blocks: [...current.blocks, createCircuitBlock()],
+                  }))
+                }
+              >
+                <PlusIcon />
+                Circuit
+              </button>
+            </div>
+          </div>
+
+          <aside className="editor-summary">
+            <p className="summary-label">Total</p>
+            <p className="summary-total">
+              {duration === null ? '—' : formatDuration(duration)}
+            </p>
+            <WorkoutStrip workout={draft} />
+            <div className="summary-blocks">
+              {draft.blocks.map((block) => (
+                <div key={block.id}>
+                  <span
+                    className="summary-dot"
+                    data-tone={
+                      block.type === 'circuit' ? 'work' : block.tone
+                    }
+                  />
+                  <span>{blockLabel(block)}</span>
+                  <strong>
+                    {formatDuration(
+                      Math.max(0, calculateBlockDuration(block)),
+                    )}
+                  </strong>
+                </div>
+              ))}
+            </div>
+            <div className="summary-equipment">
+              <p>Equipment</p>
+              {equipment.length > 0 ? (
+                <ul>
+                  {equipment.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span>Bodyweight only</span>
+              )}
+            </div>
+            <p className="summary-save-note">
               {duration === null
-                ? 'Workout needs attention'
-                : `${formatLongDuration(duration)} total`}
-            </strong>
-            <span>The generated link contains the complete workout.</span>
-          </div>
-          <div>
-            <button
-              className="button button-secondary button-large"
-              type="button"
-              onClick={onCancel}
-            >
-              Cancel
-            </button>
-            <button
-              className="button button-primary button-large"
-              type="submit"
-              disabled={issues.length > 0}
-            >
-              Create workout link
-            </button>
-          </div>
-        </footer>
+                ? 'Fix the highlighted fields to save.'
+                : `${formatLongDuration(duration)} · changes are saved in the workout link.`}
+            </p>
+          </aside>
+        </div>
       </form>
     </main>
   )
