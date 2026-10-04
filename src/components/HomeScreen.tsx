@@ -1,129 +1,71 @@
-import { useEffect, useMemo, useState } from 'react'
-import { PRESET_WORKOUTS } from '../data/presets'
-import { calculateWorkoutDuration } from '../lib/workout'
-import type { PresetSlug, Weekday, Workout } from '../types/workout'
-import { WEEKDAYS } from '../types/workout'
-import { EditIcon, PlayIcon, PlusIcon } from './Icons'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useWindowChrome } from '../hooks/useWindowChrome'
+import { STANDARD_TEMPLATE } from '../data/seed'
+import { orderDays, SHORT_DAYS } from '../lib/days'
+import { formatLongDate, formatMinutes } from '../lib/format'
+import { describeRun, groupWorkoutsForHome, scheduleLabel } from '../lib/history'
+import { calculateWorkoutDuration, validateWorkout } from '../lib/workout'
+import type { Weekday, Workout, WorkoutRun } from '../types/workout'
+import { DayPicker } from './DayPicker'
+import { CloseIcon, EditIcon, PlayIcon, PlusIcon } from './Icons'
 import { WorkoutStrip } from './WorkoutStrip'
 
-const RECENT_PRESETS: PresetSlug[] = ['friday', 'wednesday', 'tuesday']
-const SHORT_DAY: Record<Weekday, string> = {
-  Sunday: 'Sun',
-  Monday: 'Mon',
-  Tuesday: 'Tue',
-  Wednesday: 'Wed',
-  Thursday: 'Thu',
-  Friday: 'Fri',
-  Saturday: 'Sat',
-}
-
-const TODAY_LABEL = new Intl.DateTimeFormat('en-US', {
-  weekday: 'long',
-  month: 'short',
-  day: 'numeric',
-}).format(new Date())
+export type NewWorkoutSource =
+  | { kind: 'standard' }
+  | { kind: 'copy'; workoutId: string }
+  | { kind: 'blank' }
 
 export interface NewWorkoutOptions {
   name: string
-  scheduledDay?: Weekday
-  source: 'standard' | 'copy' | 'blank'
-  copySlug: PresetSlug
+  days: Weekday[]
+  source: NewWorkoutSource
 }
 
 interface HomeScreenProps {
-  selectedWorkout: Workout
-  selectedSlug: PresetSlug | null
-  hashError: string | null
-  copied: boolean
-  copyError: string | null
-  onClearInvalidLink: () => void
-  onStartWorkout: (slug: PresetSlug | null) => void
-  onEditWorkout: (slug: PresetSlug | null) => void
+  workouts: Workout[]
+  runs: WorkoutRun[]
+  notice: string | null
+  onStart: (workout: Workout) => void
+  onEdit: (workout: Workout) => void
   onCreate: (options: NewWorkoutOptions) => void
-  onCopyLink: () => void
 }
 
-function getPreviousRunLabel(workout: Workout, today = new Date()) {
-  if (!workout.scheduledDay) {
-    return 'Custom workout'
-  }
-
-  const scheduledIndex = WEEKDAYS.indexOf(workout.scheduledDay)
-  const daysAgo = (today.getDay() - scheduledIndex + 7) % 7 || 7
-  if (daysAgo === 1) {
-    return 'Yesterday'
-  }
-
-  const date = new Date(today)
-  date.setDate(today.getDate() - daysAgo)
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }).format(date)
-}
-
-function getNextScheduledLabel(today = new Date()) {
-  for (let offset = 0; offset < 7; offset += 1) {
-    const day = (today.getDay() + offset) % 7
-    const slug = RECENT_PRESETS.find(
-      (candidate) =>
-        WEEKDAYS.indexOf(PRESET_WORKOUTS[candidate].scheduledDay!) === day,
-    )
-    if (slug) {
-      return offset === 0
-        ? `up today: ${PRESET_WORKOUTS[slug].name}`
-        : `next scheduled: ${PRESET_WORKOUTS[slug].name}`
-    }
-  }
-  return 'choose a workout'
-}
-
-function exerciseNames(workout: Workout) {
-  const circuit = workout.blocks.find((block) => block.type === 'circuit')
-  return circuit?.exercises.map((exercise) => exercise.name).join(' · ') ?? ''
-}
-
-function workoutMeta(workout: Workout, slug: PresetSlug | null) {
-  const duration = Math.floor(calculateWorkoutDuration(workout) / 60)
-  if (slug === 'tuesday') {
-    return `${getPreviousRunLabel(workout)} · stopped at 31:40 of ${duration}:00`
-  }
-  if (slug === null) {
-    return `${duration} min · custom workout`
-  }
-  return `${getPreviousRunLabel(workout)} · ${duration} min · completed`
+function exerciseSummary(workout: Workout) {
+  const exercises = workout.blocks.flatMap((block) =>
+    block.type === 'circuit' ? block.exercises.map((exercise) => exercise.name) : [],
+  )
+  const names =
+    exercises.length > 0 ? exercises : workout.blocks.map((block) => block.name)
+  return names.join(' · ')
 }
 
 interface WorkoutCardProps {
   workout: Workout
-  slug: PresetSlug | null
+  run?: WorkoutRun
+  now: number
   onStart: () => void
   onEdit: () => void
-  onCopyLink?: () => void
-  copied?: boolean
 }
 
-function WorkoutCard({
-  workout,
-  slug,
-  onStart,
-  onEdit,
-  onCopyLink,
-  copied,
-}: WorkoutCardProps) {
+function WorkoutCard({ workout, run, now, onStart, onEdit }: WorkoutCardProps) {
+  const runnable = validateWorkout(workout).length === 0
   return (
     <article className="workout-card">
-      <div className="workout-card-topline">
-        <div>
+      <div className="workout-card-top">
+        <div className="workout-card-text">
           <div className="workout-card-title">
-            <h2>{workout.name}</h2>
-            {workout.scheduledDay && (
-              <span className="day-chip">
-                {SHORT_DAY[workout.scheduledDay]}
+            <h3>{workout.name}</h3>
+            {orderDays(workout.days).map((day) => (
+              <span className="chip" key={day}>
+                {SHORT_DAYS[day]}
               </span>
-            )}
+            ))}
           </div>
-          <p className="workout-card-meta">{workoutMeta(workout, slug)}</p>
+          <p className="meta">
+            {run
+              ? describeRun(run, now)
+              : formatMinutes(calculateWorkoutDuration(workout))}
+          </p>
         </div>
         <div className="workout-card-actions">
           <button
@@ -138,6 +80,7 @@ function WorkoutCard({
             className="button button-dark"
             type="button"
             onClick={onStart}
+            disabled={!runnable}
             aria-label={`Start ${workout.name}`}
           >
             <PlayIcon />
@@ -146,35 +89,31 @@ function WorkoutCard({
         </div>
       </div>
       <WorkoutStrip workout={workout} />
-      <div className="workout-card-footer">
-        <p>{exerciseNames(workout) || 'Add blocks in the workout editor'}</p>
-        {onCopyLink && (
-          <button className="text-button" type="button" onClick={onCopyLink}>
-            {copied ? 'Link copied' : 'Copy link'}
-          </button>
-        )}
-      </div>
+      <p className="workout-card-exercises">{exerciseSummary(workout)}</p>
     </article>
   )
 }
 
 interface NewWorkoutDialogProps {
+  workouts: Workout[]
   onClose: () => void
   onCreate: (options: NewWorkoutOptions) => void
 }
 
-function NewWorkoutDialog({ onClose, onCreate }: NewWorkoutDialogProps) {
-  const [name, setName] = useState('Thursday legs')
-  const [scheduledDay, setScheduledDay] = useState<Weekday | undefined>(
-    'Thursday',
-  )
-  const [source, setSource] =
-    useState<NewWorkoutOptions['source']>('standard')
-  const [copySlug, setCopySlug] = useState<PresetSlug>('tuesday')
+function NewWorkoutDialog({ workouts, onClose, onCreate }: NewWorkoutDialogProps) {
+  const titleId = useId()
+  const nameId = useId()
+  const nameRef = useRef<HTMLInputElement>(null)
+  const [name, setName] = useState('')
+  const [nameMissing, setNameMissing] = useState(false)
+  const [days, setDays] = useState<Weekday[]>([])
+  const [source, setSource] = useState<NewWorkoutSource['kind']>('standard')
+  const [copyId, setCopyId] = useState(workouts[0]?.id ?? '')
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         onClose()
       }
     }
@@ -185,109 +124,113 @@ function NewWorkoutDialog({ onClose, onCreate }: NewWorkoutDialogProps) {
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
     if (!name.trim()) {
+      setNameMissing(true)
+      nameRef.current?.focus()
       return
     }
     onCreate({
       name: name.trim(),
-      scheduledDay,
-      source,
-      copySlug,
+      days,
+      source:
+        source === 'copy' && copyId
+          ? { kind: 'copy', workoutId: copyId }
+          : source === 'blank'
+            ? { kind: 'blank' }
+            : { kind: 'standard' },
     })
   }
 
   return (
-    <div className="dialog-backdrop" role="presentation">
+    <div className="dialog-backdrop">
       <form
-        className="new-workout-dialog"
-        aria-labelledby="new-workout-title"
-        onSubmit={submit}
+        className="dialog new-workout-dialog"
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        onSubmit={submit}
+        noValidate
       >
         <div className="dialog-heading">
-          <h2 id="new-workout-title">New workout</h2>
+          <h2 className="dialog-title" id={titleId}>
+            New workout
+          </h2>
           <button
-            className="dialog-close"
+            className="icon-only"
             type="button"
             onClick={onClose}
-            aria-label="Close new workout dialog"
+            aria-label="Close"
           >
-            ×
+            <CloseIcon />
           </button>
         </div>
 
-        <label className="dialog-field">
-          <span>Name</span>
-          <input
-            value={name}
-            maxLength={80}
-            onChange={(event) => setName(event.target.value)}
-            autoFocus
-          />
+        <label className="field-label" htmlFor={nameId}>
+          Name
         </label>
+        <input
+          className="text-input"
+          id={nameId}
+          ref={nameRef}
+          value={name}
+          maxLength={80}
+          placeholder="Thursday legs"
+          autoFocus
+          aria-invalid={nameMissing || undefined}
+          aria-describedby={nameMissing ? `${nameId}-error` : undefined}
+          onChange={(event) => {
+            setName(event.target.value)
+            setNameMissing(false)
+          }}
+        />
+        {nameMissing && (
+          <p className="field-error" id={`${nameId}-error`}>
+            Give the workout a name.
+          </p>
+        )}
 
-        <fieldset className="day-picker-fieldset">
-          <legend>Repeat on</legend>
-          <div className="day-picker">
-            {WEEKDAYS.slice(1).concat(WEEKDAYS[0]).map((day) => (
-              <button
-                className="day-button"
-                data-selected={day === scheduledDay || undefined}
-                type="button"
-                key={day}
-                onClick={() =>
-                  setScheduledDay((current) =>
-                    current === day ? undefined : day,
-                  )
-                }
-                aria-pressed={day === scheduledDay}
-                aria-label={day}
-              >
-                {day.charAt(0)}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <p className="field-label">Repeat on</p>
+        <DayPicker days={days} onChange={setDays} />
 
-        <fieldset className="source-fieldset">
-          <legend>Start from</legend>
+        <fieldset className="source-options">
+          <legend className="field-label">Start from</legend>
           <label className="source-option" data-selected={source === 'standard'}>
             <input
               type="radio"
               name="source"
-              value="standard"
               checked={source === 'standard'}
               onChange={() => setSource('standard')}
             />
-            <span>
+            <span className="source-text">
               <strong>Standard template</strong>
-              <small>
+              <span className="meta">
                 Warm-up 25 · setup 5 · circuit 3 × 4 · cleanup 5
-              </small>
-              <WorkoutStrip workout={PRESET_WORKOUTS.tuesday} />
+              </span>
+              <WorkoutStrip workout={STANDARD_TEMPLATE} className="is-small" />
             </span>
           </label>
           <label className="source-option" data-selected={source === 'copy'}>
             <input
               type="radio"
               name="source"
-              value="copy"
               checked={source === 'copy'}
+              disabled={workouts.length === 0}
               onChange={() => setSource('copy')}
             />
-            <span>
+            <span className="source-text">
               <strong>Copy an existing workout</strong>
               <select
-                value={copySlug}
+                className="chip-select"
+                value={copyId}
+                disabled={workouts.length === 0}
+                aria-label="Workout to copy"
                 onChange={(event) => {
-                  setCopySlug(event.target.value as PresetSlug)
+                  setCopyId(event.target.value)
                   setSource('copy')
                 }}
-                aria-label="Workout to copy"
               >
-                {RECENT_PRESETS.map((slug) => (
-                  <option value={slug} key={slug}>
-                    {PRESET_WORKOUTS[slug].name}
+                {workouts.map((workout) => (
+                  <option value={workout.id} key={workout.id}>
+                    {workout.name}
                   </option>
                 ))}
               </select>
@@ -297,13 +240,12 @@ function NewWorkoutDialog({ onClose, onCreate }: NewWorkoutDialogProps) {
             <input
               type="radio"
               name="source"
-              value="blank"
               checked={source === 'blank'}
               onChange={() => setSource('blank')}
             />
-            <span>
+            <span className="source-text">
               <strong>Blank</strong>
-              <small>Add blocks yourself</small>
+              <span className="meta">Add blocks yourself</span>
             </span>
           </label>
         </fieldset>
@@ -312,11 +254,7 @@ function NewWorkoutDialog({ onClose, onCreate }: NewWorkoutDialogProps) {
           <button className="button button-quiet" type="button" onClick={onClose}>
             Cancel
           </button>
-          <button
-            className="button button-heat"
-            type="submit"
-            disabled={!name.trim()}
-          >
+          <button className="button button-heat" type="submit">
             Create
           </button>
         </div>
@@ -326,32 +264,36 @@ function NewWorkoutDialog({ onClose, onCreate }: NewWorkoutDialogProps) {
 }
 
 export function HomeScreen({
-  selectedWorkout,
-  selectedSlug,
-  hashError,
-  copied,
-  copyError,
-  onClearInvalidLink,
-  onStartWorkout,
-  onEditWorkout,
+  workouts,
+  runs,
+  notice,
+  onStart,
+  onEdit,
   onCreate,
-  onCopyLink,
 }: HomeScreenProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const isCustom = selectedSlug === null && !hashError
-  const nextScheduled = useMemo(() => getNextScheduledLabel(), [])
+  const [now] = useState(() => Date.now())
+  const { recent, notRun } = useMemo(
+    () => groupWorkoutsForHome(workouts, runs),
+    [runs, workouts],
+  )
+  const schedule = scheduleLabel(workouts, now)
+  const ordered = [...recent.map((entry) => entry.workout), ...notRun]
+
+  useWindowChrome('Signal')
 
   return (
-    <main className="home-shell">
-      <header className="site-header">
+    <main className="home">
+      <header className="home-header">
         <div>
-          <p className="home-kicker">
-            {TODAY_LABEL} · {nextScheduled}
+          <p className="meta">
+            {formatLongDate(now)}
+            {schedule && ` · ${schedule}`}
           </p>
-          <h1>Your workouts</h1>
+          <h1 className="page-title">Your workouts</h1>
         </div>
         <button
-          className="button button-heat"
+          className="button button-heat button-create"
           type="button"
           onClick={() => setDialogOpen(true)}
         >
@@ -360,60 +302,63 @@ export function HomeScreen({
         </button>
       </header>
 
-      {hashError && (
-        <section className="link-error" role="alert">
-          <div>
-            <strong>That workout link could not be opened.</strong>
-            <p>{hashError}</p>
-          </div>
-          <button
-            className="button button-dark"
-            type="button"
-            onClick={onClearInvalidLink}
-          >
-            Open scheduled workout
-          </button>
-        </section>
-      )}
-
-      <section className="workout-list" aria-label="Recently run workouts">
-        <p className="section-label">Recently run</p>
-        {isCustom && (
-          <WorkoutCard
-            workout={selectedWorkout}
-            slug={null}
-            onStart={() => onStartWorkout(null)}
-            onEdit={() => onEditWorkout(null)}
-            onCopyLink={onCopyLink}
-            copied={copied}
-          />
-        )}
-        {RECENT_PRESETS.map((slug) => (
-          <WorkoutCard
-            workout={PRESET_WORKOUTS[slug]}
-            slug={slug}
-            key={slug}
-            onStart={() => onStartWorkout(slug)}
-            onEdit={() => onEditWorkout(slug)}
-          />
-        ))}
-      </section>
-
-      {copyError && (
-        <p className="home-error" role="alert">
-          {copyError}
+      {notice && (
+        <p className="home-notice" role="alert">
+          {notice}
         </p>
       )}
 
-      <footer className="phase-legend">
-        <span><i data-tone="warmup" />Warm-up</span>
-        <span><i data-tone="setup" />Setup and cleanup</span>
-        <span><i data-tone="work" />Work</span>
-        <span><i data-tone="rest" />Rest</span>
+      {recent.length > 0 && (
+        <section className="workout-list" aria-labelledby="recently-run">
+          <h2 className="section-label" id="recently-run">
+            Recently run
+          </h2>
+          {recent.map(({ workout, run }) => (
+            <WorkoutCard
+              key={workout.id}
+              workout={workout}
+              run={run}
+              now={now}
+              onStart={() => onStart(workout)}
+              onEdit={() => onEdit(workout)}
+            />
+          ))}
+        </section>
+      )}
+
+      {notRun.length > 0 && (
+        <section className="workout-list" aria-labelledby="not-run-yet">
+          <h2 className="section-label" id="not-run-yet">
+            Not run yet
+          </h2>
+          {notRun.map((workout) => (
+            <WorkoutCard
+              key={workout.id}
+              workout={workout}
+              now={now}
+              onStart={() => onStart(workout)}
+              onEdit={() => onEdit(workout)}
+            />
+          ))}
+        </section>
+      )}
+
+      {workouts.length === 0 && (
+        <p className="home-empty">
+          No workouts yet. Create one to get started.
+        </p>
+      )}
+
+      <footer className="phase-legend" aria-label="Phase colors">
+        <span><i className="swatch" data-tone="warmup" />Warm-up</span>
+        <span><i className="swatch" data-tone="setup" />Setup and cleanup</span>
+        <span><i className="swatch" data-tone="work" />Work</span>
+        <span><i className="swatch" data-tone="rest" />Rest</span>
       </footer>
 
       {dialogOpen && (
         <NewWorkoutDialog
+          workouts={ordered}
           onClose={() => setDialogOpen(false)}
           onCreate={onCreate}
         />

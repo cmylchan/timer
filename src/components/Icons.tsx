@@ -5,13 +5,15 @@ type IconProps = SVGProps<SVGSVGElement>
 function IconBase({ children, ...props }: IconProps) {
   return (
     <svg
+      className="icon"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      focusable="false"
       {...props}
     >
       {children}
@@ -19,18 +21,22 @@ function IconBase({ children, ...props }: IconProps) {
   )
 }
 
+function Dot({ cx, cy }: { cx: number; cy: number }) {
+  return <circle cx={cx} cy={cy} r="1.3" fill="currentColor" stroke="none" />
+}
+
 export function ArrowLeftIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="m15 18-6-6 6-6" />
+      <path d="M5 12h14M5 12l6-6M5 12l6 6" />
     </IconBase>
   )
 }
 
-export function ArrowRightIcon(props: IconProps) {
+export function ArrowUpIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="m9 18 6-6-6-6" />
+      <path d="M12 19V5M12 5l-6 6M12 5l6 6" />
     </IconBase>
   )
 }
@@ -43,11 +49,38 @@ export function CheckIcon(props: IconProps) {
   )
 }
 
-export function CopyIcon(props: IconProps) {
+export function CheckboxIcon({
+  checked,
+  ...props
+}: IconProps & { checked: boolean }) {
   return (
     <IconBase {...props}>
-      <rect x="8" y="8" width="11" height="11" rx="2" />
-      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      {checked && <path d="M9 12l2 2 4-4" />}
+    </IconBase>
+  )
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </IconBase>
+  )
+}
+
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 15l6-6 6 6" />
+    </IconBase>
+  )
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
     </IconBase>
   )
 }
@@ -55,24 +88,31 @@ export function CopyIcon(props: IconProps) {
 export function EditIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+      <path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4z" />
+      <path d="M13.5 6.5l4 4" />
     </IconBase>
   )
 }
 
-export function ExpandIcon(props: IconProps) {
+export function GripIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+      <Dot cx={9} cy={6} />
+      <Dot cx={9} cy={12} />
+      <Dot cx={9} cy={18} />
+      <Dot cx={15} cy={6} />
+      <Dot cx={15} cy={12} />
+      <Dot cx={15} cy={18} />
     </IconBase>
   )
 }
 
-export function PauseIcon(props: IconProps) {
+export function MoreIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="M9 5v14M15 5v14" />
+      <Dot cx={5} cy={12} />
+      <Dot cx={12} cy={12} />
+      <Dot cx={19} cy={12} />
     </IconBase>
   )
 }
@@ -80,7 +120,7 @@ export function PauseIcon(props: IconProps) {
 export function PlayIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="m8 5 11 7-11 7Z" />
+      <path d="M7 4v16l13-8z" />
     </IconBase>
   )
 }
@@ -98,48 +138,6 @@ export function RestartIcon(props: IconProps) {
     <IconBase {...props}>
       <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
       <path d="M3 3v5h5" />
-    </IconBase>
-  )
-}
-
-export function SoundIcon(props: IconProps) {
-  return (
-    <IconBase {...props}>
-      <path d="M11 5 6 9H3v6h3l5 4Z" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" />
-    </IconBase>
-  )
-}
-
-export function SoundOffIcon(props: IconProps) {
-  return (
-    <IconBase {...props}>
-      <path d="M11 5 6 9H3v6h3l5 4Z" />
-      <path d="m16 9 5 5M21 9l-5 5" />
-    </IconBase>
-  )
-}
-
-export function TrashIcon(props: IconProps) {
-  return (
-    <IconBase {...props}>
-      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />
-    </IconBase>
-  )
-}
-
-export function UpIcon(props: IconProps) {
-  return (
-    <IconBase {...props}>
-      <path d="m18 15-6-6-6 6" />
-    </IconBase>
-  )
-}
-
-export function DownIcon(props: IconProps) {
-  return (
-    <IconBase {...props}>
-      <path d="m6 9 6 6 6-6" />
     </IconBase>
   )
 }

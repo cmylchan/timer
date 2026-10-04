@@ -25,7 +25,8 @@ export interface PlaybackSnapshot {
   intervalIndex: number
   intervalElapsedMs: number
   intervalRemainingMs: number
-  progress: number
+  /** How far through the current interval, from 0 to 1. */
+  intervalProgress: number
   isComplete: boolean
 }
 
@@ -158,7 +159,10 @@ export function getPlaybackSnapshot(
       0,
       intervalDurationMs - intervalElapsedMs,
     ),
-    progress: totalMs === 0 ? 1 : elapsedMs / totalMs,
+    intervalProgress:
+      intervalDurationMs === 0
+        ? 1
+        : Math.min(1, intervalElapsedMs / intervalDurationMs),
     isComplete,
   }
 }

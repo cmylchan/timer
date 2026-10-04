@@ -83,17 +83,13 @@ export function useTimer(timeline: WorkoutTimeline) {
     seekToIndex(snapshot.intervalIndex + 1)
   }, [seekToIndex, snapshot.intervalIndex])
 
+  const restartInterval = useCallback(() => {
+    seekToIndex(snapshot.intervalIndex)
+  }, [seekToIndex, snapshot.intervalIndex])
+
   const previous = useCallback(() => {
-    const targetIndex =
-      snapshot.intervalElapsedMs > 3000
-        ? snapshot.intervalIndex
-        : snapshot.intervalIndex - 1
-    seekToIndex(Math.max(0, targetIndex))
-  }, [
-    seekToIndex,
-    snapshot.intervalElapsedMs,
-    snapshot.intervalIndex,
-  ])
+    seekToIndex(Math.max(0, snapshot.intervalIndex - 1))
+  }, [seekToIndex, snapshot.intervalIndex])
 
   return {
     state,
@@ -103,6 +99,7 @@ export function useTimer(timeline: WorkoutTimeline) {
     resume,
     restart,
     next,
+    restartInterval,
     previous,
   }
 }

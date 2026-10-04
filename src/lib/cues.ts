@@ -5,9 +5,18 @@ type WebkitWindow = Window &
     webkitAudioContext?: typeof AudioContext
   }
 
+/** Countdown pitch by what comes next: high for work, low for rest. */
+const COUNTDOWN_TONES: Record<TimelineIntervalKind | 'finish', number> = {
+  work: 880,
+  rest: 440,
+  phase: 660,
+  finish: 660,
+}
+
 export class CuePlayer {
   private context: AudioContext | null = null
 
+  /** Call from a click handler; browsers block sound until then. */
   async unlock() {
     const AudioContextConstructor =
       window.AudioContext ?? (window as WebkitWindow).webkitAudioContext
@@ -35,11 +44,8 @@ export class CuePlayer {
       oscillator.type = 'sine'
       oscillator.frequency.setValueAtTime(frequency, noteStart)
       gain.gain.setValueAtTime(0.0001, noteStart)
-      gain.gain.exponentialRampToValueAtTime(0.18, noteStart + 0.01)
-      gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        noteStart + duration,
-      )
+      gain.gain.exponentialRampToValueAtTime(0.2, noteStart + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + duration)
       oscillator.connect(gain)
       gain.connect(context.destination)
       oscillator.start(noteStart)
@@ -47,30 +53,24 @@ export class CuePlayer {
     })
   }
 
-  playCountdown() {
-    return this.playNotes([740], 0.07)
-  }
-
-  playTransition(kind: TimelineIntervalKind) {
-    if (kind === 'work') {
-      return this.playNotes([620, 880])
-    }
-    if (kind === 'rest') {
-      return this.playNotes([520])
-    }
-    return this.playNotes([540, 680])
+  /** One of the three short beeps before a phase change. */
+  playCountdown(upcoming: TimelineIntervalKind | 'finish') {
+    return this.playNotes([COUNTDOWN_TONES[upcoming]], 0.09)
   }
 
   playComplete() {
     return this.playNotes([620, 760, 980], 0.16)
   }
+}
 
-  async close() {
-    if (this.context && this.context.state !== 'closed') {
-      await this.context.close()
-    }
-    this.context = null
+export const cuePlayer = new CuePlayer()
+
+export function speak(text: string) {
+  if (!('speechSynthesis' in window)) {
+    return
   }
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))
 }
 
 export function vibrate(pattern: number | number[]) {

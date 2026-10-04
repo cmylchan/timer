@@ -1,43 +1,46 @@
 # Signal
 
-A full-screen, installable HIIT timer built around a simple visual signal: every phase paints the whole window its own color. It includes the Tuesday, Wednesday, and Friday schedules below, plus a workout builder that stores the complete custom workout in its URL.
+A full-screen, installable HIIT timer built around a simple visual signal: every phase paints the whole window its own color, so you can tell where you are in a workout from across the room.
 
-## Preset workouts
+| Phase | Color |
+| --- | --- |
+| Warm-up | Char `#1A0A05` |
+| Setup and cleanup | Flash `#FFD23F` |
+| Work | Heat `#FF4D2E` |
+| Rest and recovery | Cobalt `#2337E8` |
 
-Every preset is 47 minutes:
+## Starting workouts
 
-| Day | Warmup | Setup | Circuit | Cleanup |
+On first launch, Signal saves three 47-minute workouts on this laptop:
+
+| Workout | Warm-up | Setup | Circuit, 3 rounds of 45s / 15s | Cleanup |
 | --- | --- | --- | --- | --- |
-| Tuesday | 25 min run + stretch | 5 min | 3 rounds: bicep curls (15/20/20 lb), plank, triceps (5 lb), plank | 5 min |
-| Wednesday | 25 min run + stretch | 5 min | 3 rounds: pullups, jump rope, pushups, V-sits | 5 min |
-| Friday | 25 min run + stretch | 5 min | 3 rounds: front raise (10/15/15 lb), left side plank, lateral raise (10/15/15 lb), right side plank | 5 min |
-
-Each circuit exercise uses 45 seconds of work followed by 15 seconds of rest, including the final exercise.
+| Tuesday arms | 25 min | 5 min | Bicep curls (15, 20, 20 lb), plank, tricep extension (5 lb), plank | 5 min |
+| Wednesday bodyweight | 25 min | 5 min | Pull-ups, jump rope, push-ups, V-sits | 5 min |
+| Friday shoulders | 25 min | 5 min | Front raise (10, 15, 15 lb), side plank left, lateral raise (10, 15, 15 lb), side plank right | 5 min |
 
 ## Features
 
-- Automatic phase, round, exercise, and rest transitions
-- Drift-resistant timing based on monotonic elapsed time
-- Audio countdown/transition cues and supported-device vibration
-- Full-screen mode, focus mode, and screen wake lock as progressive enhancements
-- Phase-colored queue rail, equipment checklist, and weight-change callouts
-- Pause, resume, previous, next, restart, mute, and keyboard controls
-- Responsive portrait and landscape timer layouts
-- Offline-capable PWA with an installable manifest
-- Validated custom workout editor with ordered phases and circuits
-- Versioned, compressed custom workouts stored entirely in the URL fragment
+- Phase-colored timer with a queue rail that previews what's next
+- Weight badges, a setup checklist built from the workout's weights, and a callout (spoken aloud) when a weight changes between rounds
+- Three short beeps before every phase change, pitched differently for work and rest
+- Timing computed from timestamps, so background tabs don't drift
+- Screen wake lock while a workout runs, and a title bar that takes the phase color in the installed app
+- Workout editor with timed blocks and circuits, per-round weights, circuit or sets order, and drag-to-reorder
+- Run history: completed and stopped runs, shown on the home screen
 
-Custom workout links do not require an account, backend, or browser storage. Bookmark or share the generated URL to keep a workout.
+Workouts and run history are stored in IndexedDB on this device. Fonts and assets are cached by the service worker, so the app works offline.
 
-## Keyboard controls
+## Keyboard
 
 | Key | Action |
 | --- | --- |
-| Space | Start, pause, or resume |
-| Left arrow | Previous interval |
-| Right arrow | Next interval |
-| `M` | Toggle sound and vibration cues |
-| `F` | Toggle focus mode (hide the queue rail) |
+| Space | Pause and resume |
+| → | Next interval, or next block during long blocks |
+| ← | Restart the current interval; press twice for the previous one |
+| `F` | Focus mode: hide the queue rail |
+| `M` | Mute cues |
+| Esc | End the workout, with confirmation |
 
 ## Development
 

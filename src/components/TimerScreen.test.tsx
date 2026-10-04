@@ -1,93 +1,168 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Workout } from '../types/workout'
+import { describe, expect, it, vi } from 'vitest'
+import { createSeedWorkouts } from '../data/seed'
+import { cuePlayer } from '../lib/cues'
 import { TimerScreen } from './TimerScreen'
 
-const workout: Workout = {
-  id: 'quick',
-  name: 'Quick test',
-  blocks: [
-    {
-      id: 'warmup',
-      type: 'phase',
-      name: 'Get ready',
-      durationSeconds: 10,
-      tone: 'warmup',
-    },
-  ],
+const tuesday = createSeedWorkouts(0)[0]
+
+function renderTimer() {
+  const props = {
+    workout: tuesday,
+    onProgress: vi.fn(),
+    onExit: vi.fn(),
+    onRestart: vi.fn(),
+  }
+  render(<TimerScreen {...props} />)
+  return props
+}
+
+function queueRows() {
+  const rail = screen.getByRole('complementary', { name: 'Queue' })
+  return within(rail).getAllByRole('listitem')
 }
 
 describe('TimerScreen', () => {
-  beforeEach(() => {
-    Object.defineProperty(document.documentElement, 'requestFullscreen', {
-      configurable: true,
-      value: vi.fn(() => Promise.resolve()),
+  it('starts running on open, with the warm-up block', () => {
+    renderTimer()
+
+    expect(screen.getByRole('heading', { name: 'Run / stretch' })).toBeVisible()
+    expect(screen.getByText('Warm-up · block 1 of 4')).toBeVisible()
+    expect(screen.getByRole('timer')).toHaveTextContent('25:00')
+    expect(screen.getByRole('button', { name: 'Pause workout' })).toBeVisible()
+    expect(queueRows().map((row) => row.textContent)).toEqual([
+      'Setup5:00',
+      'Circuit12:00',
+      'Cleanup5:00',
+    ])
+  })
+
+  it('keeps the remaining time on one line', () => {
+    renderTimer()
+    const rail = screen.getByRole('complementary', { name: 'Queue' })
+
+    expect(within(rail).getByText('47:00', { selector: '.sr-only' })).toBeVisible()
+    expect(rail.querySelector('.rail-remaining-time .digits')).toHaveTextContent('47:00')
+  })
+
+  it('pauses and resumes with the space bar', async () => {
+    const user = userEvent.setup()
+    renderTimer()
+
+    await user.keyboard(' ')
+    expect(screen.getByText('Paused')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Resume workout' })).toBeVisible()
+
+    await user.keyboard(' ')
+    expect(screen.queryByText('Paused')).toBeNull()
+  })
+
+  it('shows the exercise and weight, then what is next during rest', async () => {
+    const user = userEvent.setup()
+    renderTimer()
+
+    await user.keyboard('{ArrowRight}{ArrowRight}')
+    expect(screen.getByText('Round 1 of 3 · exercise 1 of 4')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Bicep curls' })).toBeVisible()
+    expect(screen.getByText('15 lb', { selector: '.weight-badge' })).toBeVisible()
+    expect(queueRows()[0]).toHaveAttribute('data-highlighted', 'true')
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('heading', { name: 'Rest' })).toBeVisible()
+    expect(screen.getByText('Next: plank')).toBeVisible()
+    expect(screen.queryByText(/^Grab/)).toBeNull()
+  })
+
+  it('calls out a weight change at the end of a round', async () => {
+    const user = userEvent.setup()
+    renderTimer()
+
+    await user.keyboard('{ArrowRight}'.repeat(9))
+    expect(screen.getByText('End of round 1')).toBeVisible()
+    expect(screen.getByText('Next: bicep curls')).toBeVisible()
+    expect(screen.getByText('Grab 20 lb')).toBeVisible()
+  })
+
+  it('restarts the interval on ←, and goes back on a second press', async () => {
+    const user = userEvent.setup()
+    renderTimer()
+    await user.keyboard('{ArrowRight}{ArrowRight}')
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('heading', { name: 'Bicep curls' })).toBeVisible()
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByText('Setup · block 2 of 4')).toBeVisible()
+    expect(screen.getByRole('button', { name: '5 lb dumbbells' })).toBeVisible()
+  })
+
+  it('toggles focus mode and mute, ignoring modified keys', async () => {
+    const user = userEvent.setup()
+    renderTimer()
+    const mute = screen.getByRole('button', { name: 'Mute cues' })
+
+    await user.keyboard('{Meta>}m{/Meta}')
+    expect(mute).toHaveAttribute('aria-pressed', 'false')
+    await user.keyboard('m')
+    expect(mute).toHaveAttribute('aria-pressed', 'true')
+
+    await user.keyboard('f')
+    expect(screen.getByRole('button', { name: 'Focus mode' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('beeps three times before each phase change, pitched for what is next', () => {
+    vi.useFakeTimers({
+      toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'performance'],
     })
-  })
-
-  it('renders the ready state and can pause after starting', async () => {
-    const user = userEvent.setup()
-    render(<TimerScreen workout={workout} onExit={vi.fn()} />)
-
-    expect(screen.getByRole('heading', { name: 'Get ready' })).toBeVisible()
-    expect(screen.getByText('0:10')).toBeVisible()
-
-    await user.click(screen.getByRole('button', { name: 'Turn cues off' }))
-    await user.click(screen.getByRole('button', { name: 'Start' }))
-    await user.click(screen.getByRole('button', { name: 'Pause workout' }))
-
-    expect(screen.getByRole('status')).toHaveTextContent('Paused')
-    expect(
-      screen.getByRole('button', { name: 'Resume workout' }),
-    ).toBeVisible()
-  })
-
-  it('shows the next exercise side or weight cue during rest', async () => {
-    const user = userEvent.setup()
-    const cueWorkout: Workout = {
-      id: 'cue-test',
-      name: 'Cue test',
-      blocks: [
-        {
-          id: 'circuit',
-          type: 'circuit',
-          name: 'Circuit',
-          rounds: 1,
-          workSeconds: 10,
-          restSeconds: 5,
-          exercises: [
-            {
-              id: 'front-raise',
-              name: 'Front raise',
-              roundCues: ['10 lb'],
-            },
-            {
-              id: 'side-plank',
-              name: 'Side plank',
-              roundCues: ['Right'],
-            },
-            {
-              id: 'lateral-raise',
-              name: 'Lateral raise',
-              roundCues: ['15 lb'],
-            },
-          ],
-        },
-      ],
+    const beep = vi.spyOn(cuePlayer, 'playCountdown').mockResolvedValue()
+    // Render every 100 ms tick, as the browser does.
+    const play = (ms: number) => {
+      for (let elapsed = 0; elapsed < ms; elapsed += 100) {
+        act(() => vi.advanceTimersByTime(100))
+      }
     }
+    try {
+      renderTimer()
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
 
-    render(<TimerScreen workout={cueWorkout} onExit={vi.fn()} />)
+      play(41_000)
+      expect(beep).not.toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Turn cues off' }))
-    await user.click(screen.getByRole('button', { name: 'Start' }))
-    await user.click(screen.getByRole('button', { name: 'Next interval' }))
+      play(1_000)
+      expect(beep).toHaveBeenCalledOnce()
 
-    expect(screen.getByText('Next: Right side plank')).toBeVisible()
+      // A restarted interval counts down out loud again.
+      fireEvent.keyDown(window, { key: 'ArrowLeft' })
+      play(45_000)
+      expect(screen.getByRole('heading', { name: 'Rest' })).toBeVisible()
+      expect(beep.mock.calls).toEqual(Array(4).fill(['rest']))
 
-    await user.click(screen.getByRole('button', { name: 'Next interval' }))
-    await user.click(screen.getByRole('button', { name: 'Next interval' }))
+      play(15_000)
+      expect(screen.getByRole('heading', { name: 'Plank' })).toBeVisible()
+      expect(beep.mock.calls.slice(4)).toEqual([['work'], ['work'], ['work']])
+    } finally {
+      beep.mockRestore()
+      vi.useRealTimers()
+    }
+  })
 
-    expect(screen.getByText('Next: Lateral raise · 15 lb')).toBeVisible()
+  it('asks before ending, then reports the stopped run', async () => {
+    const user = userEvent.setup()
+    const props = renderTimer()
+
+    await user.keyboard('{Escape}')
+    const dialog = screen.getByRole('alertdialog', { name: 'End this workout?' })
+    expect(within(dialog).getByRole('button', { name: 'Keep going' })).toHaveFocus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByText('Warm-up · block 1 of 4')).toBeVisible()
+
+    await user.click(within(dialog).getByRole('button', { name: 'End workout' }))
+    expect(props.onProgress).toHaveBeenLastCalledWith(0, false)
+    expect(props.onExit).toHaveBeenCalledOnce()
   })
 })

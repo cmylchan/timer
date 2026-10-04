@@ -12,7 +12,7 @@ export default defineConfig({
         name: 'Signal',
         short_name: 'Signal',
         description: 'A full-screen, phase-colored HIIT timer.',
-        theme_color: '#f7f3ee',
+        theme_color: '#efe9e1',
         background_color: '#f7f3ee',
         display: 'standalone',
         orientation: 'any',

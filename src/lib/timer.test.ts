@@ -11,6 +11,7 @@ const timeline: WorkoutTimeline = {
     {
       id: 'one',
       blockId: 'circuit',
+      blockIndex: 0,
       kind: 'work',
       tone: 'work',
       label: 'One',
@@ -19,6 +20,7 @@ const timeline: WorkoutTimeline = {
     {
       id: 'rest',
       blockId: 'circuit',
+      blockIndex: 0,
       kind: 'rest',
       tone: 'rest',
       label: 'Rest',
@@ -27,6 +29,7 @@ const timeline: WorkoutTimeline = {
     {
       id: 'two',
       blockId: 'circuit',
+      blockIndex: 0,
       kind: 'work',
       tone: 'work',
       label: 'Two',
@@ -97,6 +100,16 @@ describe('timer playback', () => {
       intervalElapsedMs: 0,
       intervalRemainingMs: 15_000,
     })
+  })
+
+  it('reports progress through the current interval only', () => {
+    const running = playbackReducer(createInitialPlaybackState(), {
+      type: 'start',
+      nowMs: 0,
+    })
+
+    expect(getPlaybackSnapshot(timeline, running, 9_000).intervalProgress).toBe(0.2)
+    expect(getPlaybackSnapshot(timeline, running, 48_000).intervalProgress).toBe(0.2)
   })
 
   it('clamps a seek at completion', () => {

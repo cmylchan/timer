@@ -44,9 +44,13 @@
   --cobalt-rail: #1c2dc4;
   --line: #e3dcd3;
   --line-strong: #d6cec2;
+  --dashed: #b9afa4;
+  --placeholder: #a49a90;
+  --placeholder-light: #c4bab0;
   --muted: #7a6f66;
   --muted-dark: #5e544c;
   --danger: #a32d2d;
+  --selected: #ffe3dc;
   --display: "Anton", "DejaVu Sans Condensed", sans-serif;
 }
 
