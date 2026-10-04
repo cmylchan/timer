@@ -42,7 +42,7 @@ Workouts and run history are stored in IndexedDB on this device. Fonts and asset
 | ← | Restart the current interval; press twice for the previous one |
 | `F` | Focus mode: hide the queue rail |
 | `M` | Mute cues |
-| Esc | End the workout, with confirmation |
+| Esc | End the workout, with confirmation; the workout pauses while you decide |
 
 ## Development
 

@@ -108,6 +108,8 @@ export function TimerScreen({
   const lastHeadsUpRef = useRef<number | null>(null)
   const lastBackPressRef = useRef(0)
   const completionCuedRef = useRef(false)
+  /** Set when opening the end dialog paused the workout, to undo on cancel. */
+  const pausedForEndDialogRef = useRef(false)
 
   const index = snapshot.intervalIndex
   const current = timeline.intervals[index]
@@ -173,11 +175,13 @@ export function TimerScreen({
 
   useEffect(() => () => speaker.stop(), [speaker])
 
+  // Pausing or muting cuts off a callout mid-sentence, and drops one still
+  // waiting to be said.
   useEffect(() => {
-    if (!cuesEnabled) {
+    if (paused || !cuesEnabled) {
       speaker.stop()
     }
-  }, [cuesEnabled, speaker])
+  }, [cuesEnabled, paused, speaker])
 
   // Three short beeps before every phase change, pitched by what's next.
   useEffect(() => {
@@ -251,7 +255,14 @@ export function TimerScreen({
     }
   }, [state.status, timer])
 
+  // Skips cut off the callout for the interval you're leaving.
+  const skipForward = useCallback(() => {
+    speaker.stop()
+    timer.next()
+  }, [speaker, timer])
+
   const goBack = useCallback(() => {
+    speaker.stop()
     const now = Date.now()
     if (now - lastBackPressRef.current < DOUBLE_PRESS_MS) {
       timer.previous()
@@ -259,12 +270,29 @@ export function TimerScreen({
       timer.restartInterval()
     }
     lastBackPressRef.current = now
-  }, [timer])
+  }, [speaker, timer])
 
   const toggleCues = useCallback(() => {
     setCueError(null)
     setCuesEnabled((enabled) => !enabled)
   }, [])
+
+  // The workout holds still while you decide, so it goes quiet and the
+  // time it would be saved at stops climbing.
+  const openEndDialog = useCallback(() => {
+    pausedForEndDialogRef.current = state.status === 'running'
+    if (pausedForEndDialogRef.current) {
+      timer.pause()
+    }
+    setEndDialogOpen(true)
+  }, [state.status, timer])
+
+  const keepGoing = () => {
+    setEndDialogOpen(false)
+    if (pausedForEndDialogRef.current) {
+      timer.resume()
+    }
+  }
 
   const endWorkout = () => {
     onProgress(elapsedSeconds, false)
@@ -293,7 +321,7 @@ export function TimerScreen({
         }
       } else if (event.key === 'ArrowRight') {
         event.preventDefault()
-        timer.next()
+        skipForward()
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault()
         goBack()
@@ -307,12 +335,20 @@ export function TimerScreen({
         }
       } else if (event.key === 'Escape') {
         event.preventDefault()
-        setEndDialogOpen(true)
+        openEndDialog()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [endDialogOpen, goBack, snapshot.isComplete, timer, toggleCues, togglePause])
+  }, [
+    endDialogOpen,
+    goBack,
+    openEndDialog,
+    skipForward,
+    snapshot.isComplete,
+    toggleCues,
+    togglePause,
+  ])
 
   if (snapshot.isComplete) {
     return (
@@ -471,7 +507,7 @@ export function TimerScreen({
               >
                 ←
               </button>
-              <button type="button" onClick={timer.next} aria-label="Next interval">
+              <button type="button" onClick={skipForward} aria-label="Next interval">
                 →
               </button>
             </span>
@@ -501,7 +537,7 @@ export function TimerScreen({
             <button
               className="hint"
               type="button"
-              onClick={() => setEndDialogOpen(true)}
+              onClick={openEndDialog}
               aria-label="End workout"
             >
               <kbd>Esc</kbd>
@@ -564,7 +600,7 @@ export function TimerScreen({
           confirmLabel="End workout"
           cancelLabel="Keep going"
           onConfirm={endWorkout}
-          onCancel={() => setEndDialogOpen(false)}
+          onCancel={keepGoing}
         />
       )}
 

@@ -16,23 +16,33 @@ const COUNTDOWN_TONES: Record<TimelineIntervalKind | 'finish', number> = {
 export class CuePlayer {
   private context: AudioContext | null = null
 
-  /** Call from a click handler; browsers block sound until then. */
-  async unlock() {
+  private getContext() {
     const AudioContextConstructor =
       window.AudioContext ?? (window as WebkitWindow).webkitAudioContext
     if (!AudioContextConstructor) {
       throw new Error('Sound cues are not supported by this browser.')
     }
     this.context ??= new AudioContextConstructor()
-    if (this.context.state === 'suspended') {
-      await this.context.resume()
+    return this.context
+  }
+
+  /** Call from a click handler; browsers block sound until then. */
+  async unlock() {
+    const context = this.getContext()
+    if (context.state === 'suspended') {
+      await context.resume()
     }
   }
 
+  /**
+   * Plays now or not at all. A beep only means something the moment it's
+   * due, so while sound is suspended it's dropped rather than held until
+   * sound resumes, by which time the workout has moved on or stopped.
+   */
   private async playNotes(notes: number[], duration = 0.11) {
-    await this.unlock()
-    const context = this.context
-    if (!context) {
+    const context = this.getContext()
+    if (context.state !== 'running') {
+      await context.resume()
       return
     }
 
@@ -68,18 +78,6 @@ export const cuePlayer = new CuePlayer()
 /** Callouts closer together than this collapse into the last one. */
 export const CALLOUT_GAP_MS = 500
 
-/** Cuts off a callout still being said, so stale ones never queue up. */
-function speak(text: string) {
-  if (!('speechSynthesis' in window)) {
-    return
-  }
-  const synth = window.speechSynthesis
-  if (synth.speaking || synth.pending) {
-    synth.cancel()
-  }
-  synth.speak(new SpeechSynthesisUtterance(text))
-}
-
 /**
  * Says callouts aloud. Skipping through intervals fires a burst of them,
  * and back-to-back speech calls can wedge Chromium's speech engine, even
@@ -89,6 +87,8 @@ function speak(text: string) {
 export class Speaker {
   private lastCallAt = -Infinity
   private timerId: number | undefined
+  /** The callout being said, or waiting for the engine to say it. */
+  private current: SpeechSynthesisUtterance | null = null
 
   say(text: string) {
     const now = performance.now()
@@ -96,17 +96,47 @@ export class Speaker {
     this.lastCallAt = now
     window.clearTimeout(this.timerId)
     if (quiet) {
-      speak(text)
+      this.speak(text)
     } else {
-      this.timerId = window.setTimeout(() => speak(text), CALLOUT_GAP_MS)
+      this.timerId = window.setTimeout(() => this.speak(text), CALLOUT_GAP_MS)
     }
   }
 
+  /** Cuts off the callout being said, and drops one waiting to be said. */
   stop() {
     window.clearTimeout(this.timerId)
-    if ('speechSynthesis' in window) {
+    if (this.current && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }
+    this.current = null
+  }
+
+  /** Cuts off a callout still being said, so stale ones never queue up. */
+  private speak(text: string) {
+    if (!('speechSynthesis' in window)) {
+      return
+    }
+    const synth = window.speechSynthesis
+    if (synth.speaking || synth.pending) {
+      synth.cancel()
+    }
+    const utterance = new SpeechSynthesisUtterance(text)
+    this.current = utterance
+    // A stalled engine can start a callout after you've paused, skipped
+    // or ended, when it no longer matches the screen. Cut it off.
+    utterance.onstart = () => {
+      if (!this.current) {
+        synth.cancel()
+      }
+    }
+    const finished = () => {
+      if (this.current === utterance) {
+        this.current = null
+      }
+    }
+    utterance.onend = finished
+    utterance.onerror = finished
+    synth.speak(utterance)
   }
 }
 

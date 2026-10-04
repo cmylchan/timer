@@ -225,6 +225,43 @@ describe('TimerScreen', () => {
     }
   })
 
+  it('cuts off the callout for an interval you skip', () => {
+    installFakeClock()
+    const { spoken, cancel } = stubSpeech()
+    try {
+      renderTimer()
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
+      expect(cancel).toHaveBeenCalledOnce()
+
+      play(CALLOUT_GAP_MS)
+      expect(spoken).toEqual(['Warm-up, 25 minutes.', 'Setup, 5 minutes.'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('goes quiet the moment you pause, even mid-skip', () => {
+    installFakeClock()
+    const { spoken, cancel } = stubSpeech()
+    try {
+      renderTimer()
+      fireEvent.keyDown(window, { key: ' ' })
+      expect(cancel).toHaveBeenCalledOnce()
+
+      // A callout still waiting out a quick skip is dropped, too.
+      fireEvent.keyDown(window, { key: ' ' })
+      play(1_000)
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
+      fireEvent.keyDown(window, { key: ' ' })
+      play(CALLOUT_GAP_MS)
+      expect(screen.getByText('Paused')).toBeVisible()
+      expect(spoken).toEqual(['Warm-up, 25 minutes.', 'Setup, 5 minutes.'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('calls out what is next before a long block ends, and again on restart', () => {
     installFakeClock()
     const beep = vi.spyOn(cuePlayer, 'playCountdown').mockResolvedValue()
@@ -288,5 +325,30 @@ describe('TimerScreen', () => {
     await user.click(within(dialog).getByRole('button', { name: 'End workout' }))
     expect(props.onProgress).toHaveBeenLastCalledWith(0, false)
     expect(props.onExit).toHaveBeenCalledOnce()
+  })
+
+  it('holds still and quiet while asking whether to end', () => {
+    installFakeClock()
+    const beep = vi.spyOn(cuePlayer, 'playCountdown').mockResolvedValue()
+    try {
+      renderTimer()
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
+      fireEvent.keyDown(window, { key: 'ArrowRight' })
+      play(40_000)
+
+      fireEvent.keyDown(window, { key: 'Escape' })
+      play(10_000)
+      const dialog = screen.getByRole('alertdialog', { name: 'End this workout?' })
+      expect(dialog).toHaveTextContent('stopped at 30:40 of 47:00')
+      expect(beep).not.toHaveBeenCalled()
+
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Keep going' }))
+      play(5_000)
+      expect(beep.mock.calls).toEqual(Array(3).fill(['rest']))
+      expect(screen.getByRole('heading', { name: 'Rest' })).toBeVisible()
+    } finally {
+      beep.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })
