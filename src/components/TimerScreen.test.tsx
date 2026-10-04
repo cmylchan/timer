@@ -1,15 +1,17 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSeedWorkouts } from '../data/seed'
-import { cuePlayer } from '../lib/cues'
+import { CALLOUT_GAP_MS, cuePlayer } from '../lib/cues'
+import { createCircuitBlock, createPhaseBlock } from '../lib/workout'
+import type { Workout } from '../types/workout'
 import { TimerScreen } from './TimerScreen'
 
 const tuesday = createSeedWorkouts(0)[0]
 
-function renderTimer() {
+function renderTimer(workout: Workout = tuesday) {
   const props = {
-    workout: tuesday,
+    workout,
     onProgress: vi.fn(),
     onExit: vi.fn(),
     onRestart: vi.fn(),
@@ -22,6 +24,43 @@ function queueRows() {
   const rail = screen.getByRole('complementary', { name: 'Queue' })
   return within(rail).getAllByRole('listitem')
 }
+
+function installFakeClock() {
+  vi.useFakeTimers({
+    toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'performance'],
+  })
+}
+
+/** Advances the fake clock, rendering every 100 ms tick as the browser does. */
+function play(ms: number) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 100) {
+    act(() => vi.advanceTimersByTime(100))
+  }
+}
+
+/** jsdom can't speak, so this records what would be said aloud. */
+function stubSpeech() {
+  const spoken: string[] = []
+  const cancel = vi.fn()
+  vi.stubGlobal(
+    'SpeechSynthesisUtterance',
+    class {
+      text: string
+      constructor(text: string) {
+        this.text = text
+      }
+    },
+  )
+  vi.stubGlobal('speechSynthesis', {
+    speaking: false,
+    pending: false,
+    speak: (utterance: { text: string }) => spoken.push(utterance.text),
+    cancel,
+  })
+  return { spoken, cancel }
+}
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('TimerScreen', () => {
   it('starts running on open, with the warm-up block', () => {
@@ -115,16 +154,8 @@ describe('TimerScreen', () => {
   })
 
   it('beeps three times before each phase change, pitched for what is next', () => {
-    vi.useFakeTimers({
-      toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'performance'],
-    })
+    installFakeClock()
     const beep = vi.spyOn(cuePlayer, 'playCountdown').mockResolvedValue()
-    // Render every 100 ms tick, as the browser does.
-    const play = (ms: number) => {
-      for (let elapsed = 0; elapsed < ms; elapsed += 100) {
-        act(() => vi.advanceTimersByTime(100))
-      }
-    }
     try {
       renderTimer()
       fireEvent.keyDown(window, { key: 'ArrowRight' })
@@ -149,6 +180,99 @@ describe('TimerScreen', () => {
       beep.mockRestore()
       vi.useRealTimers()
     }
+  })
+
+  it('calls out each interval as it starts, and what is next during rests', () => {
+    installFakeClock()
+    const { spoken } = stubSpeech()
+    try {
+      renderTimer()
+      expect(spoken).toEqual(['Warm-up, 25 minutes.'])
+
+      for (let skip = 0; skip < 3; skip += 1) {
+        play(1_000)
+        fireEvent.keyDown(window, { key: 'ArrowRight' })
+      }
+      expect(spoken).toEqual([
+        'Warm-up, 25 minutes.',
+        'Setup, 5 minutes.',
+        'Bicep curls, 15 pounds.',
+        'Rest. Next: plank.',
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says only where you land when skipping quickly', () => {
+    installFakeClock()
+    const { spoken } = stubSpeech()
+    try {
+      renderTimer()
+      for (let skip = 0; skip < 9; skip += 1) {
+        fireEvent.keyDown(window, { key: 'ArrowRight' })
+      }
+      expect(screen.getByText('End of round 1')).toBeVisible()
+      expect(spoken).toEqual(['Warm-up, 25 minutes.'])
+
+      play(CALLOUT_GAP_MS)
+      expect(spoken).toEqual([
+        'Warm-up, 25 minutes.',
+        'Rest. Next: bicep curls. Grab 20 pounds.',
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('calls out what is next before a long block ends, and again on restart', () => {
+    installFakeClock()
+    const beep = vi.spyOn(cuePlayer, 'playCountdown').mockResolvedValue()
+    const { spoken } = stubSpeech()
+    try {
+      renderTimer({
+        id: 'short',
+        name: 'Short',
+        days: [],
+        createdAt: 0,
+        blocks: [
+          createPhaseBlock('setup', 'Set up', 30),
+          { ...createCircuitBlock('Circuit', ['Jumping jacks']), rounds: 1 },
+        ],
+      })
+      expect(spoken).toEqual(['Setup, 30 seconds.'])
+
+      play(19_900)
+      expect(spoken).toHaveLength(1)
+      play(100)
+      expect(spoken.at(-1)).toBe('Up next: jumping jacks.')
+
+      play(10_000)
+      expect(spoken.at(-1)).toBe('Jumping jacks.')
+
+      // Restarting the interval calls it out again.
+      play(2_000)
+      fireEvent.keyDown(window, { key: 'ArrowLeft' })
+      expect(spoken.slice(1)).toEqual([
+        'Up next: jumping jacks.',
+        'Jumping jacks.',
+        'Jumping jacks.',
+      ])
+    } finally {
+      beep.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops talking when muted', async () => {
+    const { spoken, cancel } = stubSpeech()
+    const user = userEvent.setup()
+    renderTimer()
+
+    await user.keyboard('m')
+    expect(cancel).toHaveBeenCalledOnce()
+    await user.keyboard('{ArrowRight}')
+    expect(spoken).toEqual(['Warm-up, 25 minutes.'])
   })
 
   it('asks before ending, then reports the stopped run', async () => {

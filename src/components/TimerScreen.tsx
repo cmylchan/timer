@@ -10,7 +10,13 @@ import {
 import { useTimer } from '../hooks/useTimer'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { PANEL_COLOR, useWindowChrome } from '../hooks/useWindowChrome'
-import { cuePlayer, speak, vibrate } from '../lib/cues'
+import {
+  COMPLETE_ANNOUNCEMENT,
+  HEADS_UP_SECONDS,
+  headsUpAnnouncement,
+  startAnnouncement,
+} from '../lib/announcements'
+import { cuePlayer, Speaker, vibrate } from '../lib/cues'
 import { digitsWidthEm } from '../lib/digits'
 import { formatDuration, toSentenceCase } from '../lib/format'
 import { getQueue, getWeightChange, intervalRowLabel } from '../lib/queue'
@@ -40,6 +46,13 @@ const RAIL_COLORS: Record<PhaseColor, string> = {
 
 /** Two presses of ← within this window go to the previous interval. */
 const DOUBLE_PRESS_MS = 1500
+
+/** Past this many items, the setup checklist wraps into balanced columns. */
+const CHECKLIST_MAX_ROWS = 4
+
+function checklistRows(count: number) {
+  return Math.ceil(count / Math.ceil(count / CHECKLIST_MAX_ROWS))
+}
 
 interface TimerScreenProps {
   workout: Workout
@@ -84,13 +97,15 @@ export function TimerScreen({
   const timer = useTimer(timeline)
   const { snapshot, state, start } = timer
   const [cuesEnabled, setCuesEnabled] = useState(true)
+  const [speaker] = useState(() => new Speaker())
   const [focusMode, setFocusMode] = useState(false)
   const [endDialogOpen, setEndDialogOpen] = useState(false)
   const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set())
   const [cueError, setCueError] = useState<string | null>(null)
   const [wakeLockErrorDismissed, setWakeLockErrorDismissed] = useState(false)
   const lastBeepRef = useRef<string | null>(null)
-  const lastSpokenRef = useRef<number | null>(null)
+  const lastAnnouncedRef = useRef<number | null>(null)
+  const lastHeadsUpRef = useRef<number | null>(null)
   const lastBackPressRef = useRef(0)
   const completionCuedRef = useRef(false)
 
@@ -111,6 +126,7 @@ export function TimerScreen({
   )
   const weightChange = getWeightChange(timeline.intervals, index)
   const remainingWhole = Math.ceil(snapshot.intervalRemainingMs / 1000)
+  const atIntervalStart = snapshot.intervalElapsedMs < 1000
   const elapsedSeconds = Math.floor(snapshot.elapsedMs / 1000)
 
   useWindowChrome(
@@ -155,7 +171,13 @@ export function TimerScreen({
     }
   }, [])
 
-  useEffect(() => () => window.speechSynthesis?.cancel(), [])
+  useEffect(() => () => speaker.stop(), [speaker])
+
+  useEffect(() => {
+    if (!cuesEnabled) {
+      speaker.stop()
+    }
+  }, [cuesEnabled, speaker])
 
   // Three short beeps before every phase change, pitched by what's next.
   useEffect(() => {
@@ -178,18 +200,35 @@ export function TimerScreen({
     vibrate(60)
   }, [cuesEnabled, index, next?.kind, remainingWhole, reportCueError, running])
 
+  // Each interval is called out as it starts; rests say what's next.
   useEffect(() => {
-    if (
-      !running ||
-      !cuesEnabled ||
-      weightChange === null ||
-      lastSpokenRef.current === index
-    ) {
+    if (!atIntervalStart) {
+      // Re-arm, so a restarted interval is called out again.
+      lastAnnouncedRef.current = null
       return
     }
-    lastSpokenRef.current = index
-    speak(`Grab ${weightChange} pounds`)
-  }, [cuesEnabled, index, running, weightChange])
+    if (!running || !cuesEnabled || lastAnnouncedRef.current === index) {
+      return
+    }
+    lastAnnouncedRef.current = index
+    speaker.say(startAnnouncement(timeline.intervals, index))
+  }, [atIntervalStart, cuesEnabled, index, running, speaker, timeline.intervals])
+
+  // Long blocks call out what's next shortly before they end.
+  useEffect(() => {
+    if (remainingWhole > HEADS_UP_SECONDS) {
+      lastHeadsUpRef.current = null
+      return
+    }
+    if (!running || !cuesEnabled || lastHeadsUpRef.current === index) {
+      return
+    }
+    lastHeadsUpRef.current = index
+    const headsUp = headsUpAnnouncement(timeline.intervals, index)
+    if (headsUp) {
+      speaker.say(headsUp)
+    }
+  }, [cuesEnabled, index, remainingWhole, running, speaker, timeline.intervals])
 
   useEffect(() => {
     if (!snapshot.isComplete || completionCuedRef.current) {
@@ -198,8 +237,9 @@ export function TimerScreen({
     completionCuedRef.current = true
     if (cuesEnabled) {
       void cuePlayer.playComplete().catch(reportCueError)
+      speaker.say(COMPLETE_ANNOUNCEMENT)
     }
-  }, [cuesEnabled, reportCueError, snapshot.isComplete])
+  }, [cuesEnabled, reportCueError, snapshot.isComplete, speaker])
 
   const togglePause = useCallback(() => {
     if (state.status === 'running') {
@@ -337,16 +377,12 @@ export function TimerScreen({
 
             <div className="timer-copy">
               {current.kind === 'work' && <p className="timer-phase">Work</p>}
-              {current.kind === 'rest' ? (
-                <h1 className="timer-phase">Rest</h1>
-              ) : (
-                <h1
-                  className={showChecklist ? 'sr-only' : 'timer-name'}
-                  data-long={current.label.length > 36 || undefined}
-                >
-                  {current.label}
-                </h1>
-              )}
+              <h1
+                className="timer-name"
+                data-long={current.label.length > 36 || undefined}
+              >
+                {current.label}
+              </h1>
               {current.kind === 'work' && current.weight != null && (
                 <p className="weight-badge">{formatWeight(current.weight)}</p>
               )}
@@ -359,7 +395,15 @@ export function TimerScreen({
                 <p className="timer-hint">Press → when you&apos;re back</p>
               )}
               {showChecklist && (
-                <ul className="checklist" aria-label="Equipment checklist">
+                <ul
+                  className="checklist"
+                  aria-label="Equipment checklist"
+                  style={
+                    {
+                      '--checklist-rows': checklistRows(checklist.length),
+                    } as CSSProperties
+                  }
+                >
                   {checklist.map((item) => {
                     const isChecked = checked.has(item)
                     return (

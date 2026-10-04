@@ -22,8 +22,10 @@ On first launch, Signal saves three 47-minute workouts on this laptop:
 ## Features
 
 - Phase-colored timer with a queue rail that previews what's next
-- Weight badges, a setup checklist built from the workout's weights, and a callout (spoken aloud) when a weight changes between rounds
+- Weight badges, a setup checklist built from the workout's weights, and a callout when a weight changes between rounds
+- Spoken callouts: each interval is named as it starts, rests say what's next and which weight to grab, and long blocks give a heads-up 10 seconds before they end
 - Three short beeps before every phase change, pitched differently for work and rest
+- Type that scales with the window, at the same sizes in every phase
 - Timing computed from timestamps, so background tabs don't drift
 - Screen wake lock while a workout runs, and a title bar that takes the phase color in the installed app
 - Workout editor with timed blocks and circuits, per-round weights, circuit or sets order, and drag-to-reorder

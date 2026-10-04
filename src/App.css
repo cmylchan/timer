@@ -1065,15 +1065,23 @@ body.is-reordering * {
     clamp(20px, 3.5vw, 52px)
     max(clamp(14px, 2.5vh, 24px), env(safe-area-inset-bottom));
   container-type: inline-size;
+  /* One type scale for every phase, in a unit that grows with the window:
+     a share of its height, narrowed so a "25:00" countdown still fits
+     across the column. */
+  --u: min(1vh, 0.88cqi);
+  --type-countdown: calc(var(--u) * 48);
+  --type-title: calc(var(--u) * 9);
+  --type-label: calc(var(--u) * 5);
+  --type-detail: calc(var(--u) * 3.4);
 }
 
 .timer-meta {
   display: flex;
-  min-height: 20px;
+  min-height: 1.65em;
   align-items: center;
   gap: 8px;
   color: var(--muted-ink);
-  font-size: 12px;
+  font-size: max(12px, calc(var(--u) * 1.8));
   font-weight: 600;
 }
 
@@ -1100,20 +1108,20 @@ body.is-reordering * {
   flex-wrap: wrap;
   align-items: center;
   align-self: center;
-  gap: 12px clamp(20px, 2.5vw, 36px);
+  gap: calc(var(--u) * 1.5) calc(var(--u) * 4);
 }
 
 .timer-group[data-layout="stack"] {
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: var(--u);
 }
 
 .countdown {
   min-width: calc(var(--countdown-em) * 1em);
   flex: 0 0 auto;
   font-family: var(--display);
-  font-size: min(clamp(120px, 26vh, 300px), calc(96cqi / var(--countdown-em)));
+  font-size: min(var(--type-countdown), calc(96cqi / var(--countdown-em)));
   line-height: 0.9;
   text-align: right;
   white-space: nowrap;
@@ -1129,23 +1137,27 @@ body.is-reordering * {
 
 .timer-copy {
   display: flex;
-  max-width: min(400px, 100%);
+  max-width: min(calc(var(--u) * 60), 100%);
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
 }
 
+.timer-group[data-layout="stack"] .timer-copy {
+  max-width: 100%;
+}
+
 .timer-phase {
   font-family: var(--display);
-  font-size: 28px;
+  font-size: var(--type-label);
   font-weight: 400;
   line-height: 1.05;
 }
 
 .timer-name {
-  margin-top: 4px;
+  margin-top: 0.08em;
   font-family: var(--display);
-  font-size: 46px;
+  font-size: var(--type-title);
   font-weight: 400;
   line-height: 1.02;
   overflow-wrap: anywhere;
@@ -1153,58 +1165,61 @@ body.is-reordering * {
 }
 
 .timer-name[data-long] {
-  font-size: 40px;
+  font-size: calc(var(--type-title) * 0.85);
 }
 
 .timer-group[data-layout="stack"] .timer-name {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .weight-badge {
-  padding: 2px 12px;
-  margin-top: 10px;
+  padding: 0.07em 0.43em;
+  margin-top: 0.36em;
   color: var(--phase);
   background: var(--ink);
-  border-radius: 6px;
+  border-radius: 0.21em;
   font-family: var(--display);
-  font-size: 28px;
+  font-size: var(--type-label);
   line-height: 1.2;
 }
 
 .timer-next,
 .timer-hint {
-  margin-top: 4px;
+  margin-top: 0.3em;
   color: var(--muted-ink);
-  font-size: 13px;
+  font-size: var(--type-detail);
 }
 
+/* Fills a column at a time; --checklist-rows balances the columns. */
 .checklist {
   display: grid;
-  gap: 2px;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--checklist-rows), auto);
+  gap: 0.1em 1.5em;
   padding: 0;
-  margin: 10px 0 0;
+  margin: 0.6em 0 0;
+  font-size: var(--type-detail);
   list-style: none;
 }
 
 .checklist button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 0;
+  gap: 0.5em;
+  padding: 0.15em 0;
   color: inherit;
   background: transparent;
-  font-size: 16px;
   text-align: left;
 }
 
 .checklist .icon {
-  font-size: 19px;
+  font-size: 1.2em;
 }
 
 .timer-upnext {
   display: none;
-  margin-top: 10px;
-  font-size: 13px;
+  margin-top: 0.75em;
+  font-size: var(--type-detail);
 }
 
 .timer-upnext span {
@@ -1216,20 +1231,20 @@ body.is-reordering * {
   display: flex;
   align-items: center;
   align-self: end;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: 0.35em;
+  padding: 0.35em 0.55em;
   color: var(--phase);
   background: #fff;
-  border-radius: 8px;
+  border-radius: 0.28em;
+  font-size: var(--type-label);
 }
 
 .weight-callout .icon {
-  font-size: 26px;
+  font-size: 0.93em;
 }
 
 .weight-callout span {
   font-family: var(--display);
-  font-size: 28px;
   line-height: 1.1;
 }
 
@@ -1254,7 +1269,7 @@ body.is-reordering * {
   flex-wrap: wrap;
   gap: 6px 16px;
   margin-top: 12px;
-  font-size: 11px;
+  font-size: max(11px, calc(var(--u) * 1.35));
   font-weight: 600;
 }
 
@@ -1308,13 +1323,13 @@ body.is-reordering * {
     max(clamp(14px, 2.5vh, 24px), env(safe-area-inset-bottom))
     14px;
   background: var(--rail);
-  font-size: 13px;
+  font-size: clamp(13px, 1.8vh, 20px);
 }
 
 .rail-heading {
-  margin-bottom: 8px;
+  margin-bottom: 0.6em;
   color: var(--muted-ink);
-  font-size: 12px;
+  font-size: 0.92em;
   font-weight: 600;
 }
 
@@ -1329,7 +1344,7 @@ body.is-reordering * {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 7px 9px;
+  padding: 0.54em 0.7em;
   border-radius: 8px;
 }
 
@@ -1352,10 +1367,10 @@ body.is-reordering * {
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 0.6em;
+  height: 0.6em;
   flex: 0 0 auto;
-  margin-right: 7px;
+  margin-right: 0.55em;
   border-radius: 50%;
 }
 
@@ -1365,20 +1380,20 @@ body.is-reordering * {
 }
 
 .rail-remaining {
-  padding-top: 10px;
+  padding-top: 0.75em;
   margin-top: auto;
   border-top: 1.5px solid var(--ink);
 }
 
 .rail-remaining > p:first-child {
   color: var(--muted-ink);
-  font-size: 12px;
+  font-size: 0.92em;
   font-weight: 600;
 }
 
 .rail-remaining-time {
   font-family: var(--display);
-  font-size: 30px;
+  font-size: 2.3em;
   line-height: 1.1;
   white-space: nowrap;
 }

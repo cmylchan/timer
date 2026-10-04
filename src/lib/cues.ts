@@ -65,12 +65,49 @@ export class CuePlayer {
 
 export const cuePlayer = new CuePlayer()
 
-export function speak(text: string) {
+/** Callouts closer together than this collapse into the last one. */
+export const CALLOUT_GAP_MS = 500
+
+/** Cuts off a callout still being said, so stale ones never queue up. */
+function speak(text: string) {
   if (!('speechSynthesis' in window)) {
     return
   }
-  window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))
+  const synth = window.speechSynthesis
+  if (synth.speaking || synth.pending) {
+    synth.cancel()
+  }
+  synth.speak(new SpeechSynthesisUtterance(text))
+}
+
+/**
+ * Says callouts aloud. Skipping through intervals fires a burst of them,
+ * and back-to-back speech calls can wedge Chromium's speech engine, even
+ * across reloads. So a callout within CALLOUT_GAP_MS of the last waits
+ * until they stop, and only the latest is said.
+ */
+export class Speaker {
+  private lastCallAt = -Infinity
+  private timerId: number | undefined
+
+  say(text: string) {
+    const now = performance.now()
+    const quiet = now - this.lastCallAt >= CALLOUT_GAP_MS
+    this.lastCallAt = now
+    window.clearTimeout(this.timerId)
+    if (quiet) {
+      speak(text)
+    } else {
+      this.timerId = window.setTimeout(() => speak(text), CALLOUT_GAP_MS)
+    }
+  }
+
+  stop() {
+    window.clearTimeout(this.timerId)
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+  }
 }
 
 export function vibrate(pattern: number | number[]) {
