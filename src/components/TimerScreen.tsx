@@ -132,7 +132,7 @@ export function TimerScreen({
   const elapsedSeconds = Math.floor(snapshot.elapsedMs / 1000)
 
   useWindowChrome(
-    `Signal · ${workout.name}`,
+    `HIIT · ${workout.name}`,
     snapshot.isComplete ? PANEL_COLOR : RAIL_COLORS[color],
   )
 

@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['app-icon.svg', 'fonts/*.ttf'],
       manifest: {
-        name: 'Signal',
-        short_name: 'Signal',
+        name: 'HIIT',
+        short_name: 'HIIT',
         description: 'A full-screen, phase-colored HIIT timer.',
         theme_color: '#efe9e1',
         background_color: '#f7f3ee',

@@ -445,7 +445,7 @@ export function WorkoutEditor({
   const equipment = equipmentSummary(getEquipment(draft))
   const blockIds = draft.blocks.map((block) => block.id)
 
-  useWindowChrome('Signal · Edit workout')
+  useWindowChrome('HIIT · Edit workout')
 
   const setBlocks = (update: (blocks: WorkoutBlock[]) => WorkoutBlock[]) =>
     setDraft((current) => ({ ...current, blocks: update(current.blocks) }))

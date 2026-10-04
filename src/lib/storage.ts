@@ -58,7 +58,7 @@ function openDatabase(seed: () => Workout[]) {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
     request.onblocked = () =>
-      reject(new Error('Close other Signal windows and reload.'))
+      reject(new Error('Close other HIIT windows and reload.'))
   })
 }
 

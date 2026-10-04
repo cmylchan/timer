@@ -280,7 +280,7 @@ export function HomeScreen({
   const schedule = scheduleLabel(workouts, now)
   const ordered = [...recent.map((entry) => entry.workout), ...notRun]
 
-  useWindowChrome('Signal')
+  useWindowChrome('HIIT')
 
   return (
     <main className="home">

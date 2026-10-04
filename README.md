@@ -1,4 +1,4 @@
-# Signal
+# HIIT
 
 A full-screen, installable HIIT timer built around a simple visual signal: every phase paints the whole window its own color, so you can tell where you are in a workout from across the room.
 
@@ -11,7 +11,7 @@ A full-screen, installable HIIT timer built around a simple visual signal: every
 
 ## Starting workouts
 
-On first launch, Signal saves three 47-minute workouts on this laptop:
+On first launch, HIIT saves three 47-minute workouts on this laptop:
 
 | Workout | Warm-up | Setup | Circuit, 3 rounds of 45s / 15s | Cleanup |
 | --- | --- | --- | --- | --- |
