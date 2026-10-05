@@ -7,10 +7,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['app-icon.svg', 'fonts/*.ttf'],
+      includeAssets: ['fff-icon.png', 'fonts/*.ttf'],
       manifest: {
-        name: 'HIIT',
-        short_name: 'HIIT',
+        name: 'HIIT Timer',
+        short_name: 'HIIT Timer',
         description: 'A full-screen, phase-colored HIIT timer.',
         theme_color: '#efe9e1',
         background_color: '#f7f3ee',
