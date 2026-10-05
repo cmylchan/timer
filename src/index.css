@@ -1,57 +1,76 @@
 @font-face {
-  font-family: "Anton";
-  src: url("/fonts/anton-regular.ttf") format("truetype");
+  font-family: "Inter";
+  src: url("/fonts/inter-regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Archivo";
-  src: url("/fonts/archivo-regular.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Archivo";
-  src: url("/fonts/archivo-semibold.ttf") format("truetype");
+  font-family: "Inter";
+  src: url("/fonts/inter-semibold.woff2") format("woff2");
   font-style: normal;
   font-weight: 600;
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Bebas Neue";
+  src: url("/fonts/bebas-neue-regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
-  font-family: "Archivo", "DejaVu Sans", sans-serif;
-  color: #1a0a05;
-  background: #f7f3ee;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --display: "Bebas Neue", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  font-family: var(--font-sans);
+  color: var(--color-text-strong);
+  background: var(--color-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color-scheme: light;
-  --paper: #f7f3ee;
-  --panel: #efe9e1;
-  --card: #ffffff;
-  --char: #1a0a05;
-  --char-rail: #2b1a14;
-  --flash: #ffd23f;
+
+  /* Forged Warmth — UI color tokens */
+  --color-primary:        #16263D;
+  --color-primary-deep:   #0E1A2B;
+  --color-cta:            #C2410C;
+  --color-cta-hover:      #9A3412;
+  --color-hope:           #F2B544;
+  --color-bg:             #FAF6F1;
+  --color-surface:        #FFFFFF;
+  --color-panel:          #F1ECE5;
+  --color-border:         #E7DFD5;
+  --color-text-strong:    #1F2328;
+  --color-text:           #4B4540;
+  --color-text-muted:     #5B6474;
+  --color-disabled-bg:    #F1ECE5;
+  --color-disabled-text:  #6B6259;
+  --color-success:        #2F7D5B;
+  --color-warning:        #B7791F;
+  --color-error:          #B42318;
+  --color-info:           #2B6CB0;
+  --focus-ring-light:     #C2410C;
+  --focus-ring-dark:      #F2B544;
+  /* Local extras (no style-guide equivalent, kept for component use) */
+  --color-placeholder:        #A49A90;
+  --color-placeholder-light:  #C4BAB0;
+  --color-selected:           #FFE3DC;
+
+  /* Timer phase tokens — unchanged */
+  --char:       #1a0a05;
+  --char-rail:  #2b1a14;
+  --flash:      #ffd23f;
   --flash-rail: #f2c12e;
-  --heat: #ff4d2e;
-  --heat-rail: #e8432a;
-  --cobalt: #2337e8;
-  --cobalt-rail: #1c2dc4;
-  --line: #e3dcd3;
-  --line-strong: #d6cec2;
-  --dashed: #b9afa4;
-  --placeholder: #a49a90;
-  --placeholder-light: #c4bab0;
-  --muted: #7a6f66;
-  --muted-dark: #5e544c;
-  --danger: #a32d2d;
-  --selected: #ffe3dc;
-  --display: "Anton", "DejaVu Sans Condensed", sans-serif;
+  --heat:       #ff4d2e;
+  --heat-rail:  #e8432a;
+  --cobalt:     #2337e8;
+  --cobalt-rail:#1c2dc4;
 }
 
 * {
@@ -61,7 +80,7 @@
 html {
   min-width: 320px;
   min-height: 100%;
-  background: var(--paper);
+  background: var(--color-bg);
 }
 
 body {
@@ -69,7 +88,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0;
-  background: var(--paper);
+  background: var(--color-bg);
 }
 
 body,
@@ -117,13 +136,13 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--cobalt);
+  outline: 3px solid var(--focus-ring-light);
   outline-offset: 3px;
 }
 
 ::selection {
-  color: var(--char);
-  background: var(--flash);
+  color: var(--color-text-strong);
+  background: var(--color-hope);
 }
 
 .sr-only {
