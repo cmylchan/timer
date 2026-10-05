@@ -54,15 +54,14 @@ describe('seed workouts', () => {
     ).toEqual([null, null, null, null, null, null])
   })
 
-  it('names Friday side planks by side', () => {
-    const friday = seeds[2]
-    const circuit = friday.blocks[2] as CircuitBlock
+  it('names the template circuit exercises', () => {
+    const circuit = tuesday.blocks[2] as CircuitBlock
 
     expect(circuit.exercises.map((exercise) => exercise.name)).toEqual([
-      'Front raise',
-      'Side plank, left',
-      'Lateral raise',
-      'Side plank, right',
+      'Bicep curls',
+      'Plank',
+      'Tricep extension',
+      'Plank',
     ])
   })
 })

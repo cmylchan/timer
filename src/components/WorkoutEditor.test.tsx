@@ -28,7 +28,7 @@ describe('WorkoutEditor', () => {
   it('shows blocks, per-round weights, and the summary rail', () => {
     renderEditor()
 
-    expect(screen.getByLabelText('Workout name')).toHaveValue('Tuesday arms')
+    expect(screen.getByLabelText('Workout name')).toHaveValue('[Template]')
     expect(screen.getByLabelText('Run / stretch duration')).toHaveValue('25:00')
     expect(
       screen.getByLabelText('Bicep curls, round 2 weight in lb'),
@@ -130,7 +130,7 @@ describe('WorkoutEditor', () => {
     const { onDelete } = renderEditor()
 
     await user.click(screen.getByRole('button', { name: 'Delete' }))
-    const dialog = screen.getByRole('alertdialog', { name: 'Delete Tuesday arms?' })
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete [Template]?' })
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
     expect(onDelete).toHaveBeenCalledWith(tuesday)

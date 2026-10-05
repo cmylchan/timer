@@ -49,7 +49,7 @@ describe('per-round weights', () => {
 })
 
 describe('equipment', () => {
-  const [tuesday, wednesday] = createSeedWorkouts(0)
+  const [tuesday] = createSeedWorkouts(0)
 
   it('lists each dumbbell for the setup checklist', () => {
     expect(equipmentChecklist(getEquipment(tuesday))).toEqual([
@@ -68,9 +68,19 @@ describe('equipment', () => {
   })
 
   it('finds bodyweight equipment from exercise names', () => {
-    expect(equipmentSummary(getEquipment(wednesday))).toEqual([
-      'Mat',
-      'Jump rope',
-    ])
+    const bodyweight: typeof tuesday = {
+      ...tuesday,
+      blocks: [
+        {
+          ...tuesday.blocks[2],
+          type: 'circuit',
+          exercises: [
+            { id: 'p1', name: 'Pull-ups', weights: [null] },
+            { id: 'jr', name: 'Jump rope', weights: [null] },
+          ],
+        } as typeof tuesday.blocks[2],
+      ],
+    }
+    expect(equipmentSummary(getEquipment(bodyweight))).toEqual(['Jump rope'])
   })
 })

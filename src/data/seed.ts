@@ -55,12 +55,12 @@ function seedWorkout(
   }
 }
 
-/** The three workouts written to storage on first launch. */
+/** The single workout written to storage on first launch. */
 export function createSeedWorkouts(now = Date.now()): Workout[] {
   return [
     seedWorkout(
       'tuesday',
-      'Tuesday arms',
+      '[Template]',
       'Tuesday',
       'Arms and core',
       [
@@ -70,32 +70,6 @@ export function createSeedWorkouts(now = Date.now()): Workout[] {
         exercise('seed-tuesday-plank-2', 'Plank'),
       ],
       now,
-    ),
-    seedWorkout(
-      'wednesday',
-      'Wednesday bodyweight',
-      'Wednesday',
-      'Bodyweight conditioning',
-      [
-        exercise('seed-wednesday-pullups', 'Pull-ups'),
-        exercise('seed-wednesday-jumprope', 'Jump rope'),
-        exercise('seed-wednesday-pushups', 'Push-ups'),
-        exercise('seed-wednesday-vsits', 'V-sits'),
-      ],
-      now + 1,
-    ),
-    seedWorkout(
-      'friday',
-      'Friday shoulders',
-      'Friday',
-      'Shoulders and side core',
-      [
-        exercise('seed-friday-front-raise', 'Front raise', [10, 15, 15]),
-        exercise('seed-friday-side-plank-left', 'Side plank, left'),
-        exercise('seed-friday-lateral-raise', 'Lateral raise', [10, 15, 15]),
-        exercise('seed-friday-side-plank-right', 'Side plank, right'),
-      ],
-      now + 2,
     ),
   ]
 }

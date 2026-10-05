@@ -6,7 +6,7 @@ import { describeRun, groupWorkoutsForHome, scheduleLabel } from './history'
 // Saturday, October 3, 2026, mid-morning local time.
 const NOW = new Date(2026, 9, 3, 10, 0).getTime()
 const day = (date: number, hour = 18) => new Date(2026, 8, date, hour).getTime()
-const [tuesday, wednesday, friday] = createSeedWorkouts(0)
+const [tuesday] = createSeedWorkouts(0)
 
 function run(overrides: Partial<WorkoutRun>): WorkoutRun {
   return {
@@ -50,34 +50,29 @@ describe('home ordering', () => {
   it('sorts run workouts by last run and keeps the rest apart', () => {
     const runs = [
       run({ id: 'a', workoutId: tuesday.id, startedAt: day(29) }),
-      run({ id: 'b', workoutId: wednesday.id, startedAt: day(30) }),
-      run({ id: 'c', workoutId: tuesday.id, startedAt: day(20) }),
+      run({ id: 'b', workoutId: tuesday.id, startedAt: day(30) }),
     ]
 
-    const { recent, notRun } = groupWorkoutsForHome(
-      [tuesday, wednesday, friday],
-      runs,
-    )
+    const { recent, notRun } = groupWorkoutsForHome([tuesday], runs)
 
     expect(recent.map(({ workout, run }) => [workout.name, run.id])).toEqual([
-      ['Wednesday bodyweight', 'b'],
-      ['Tuesday arms', 'a'],
+      ['[Template]', 'b'],
     ])
-    expect(notRun.map((workout) => workout.name)).toEqual(['Friday shoulders'])
+    expect(notRun).toEqual([])
   })
 })
 
 describe('schedule label', () => {
-  const workouts = [tuesday, wednesday, friday]
+  const workouts = [tuesday]
 
   it('names the next scheduled workout', () => {
-    expect(scheduleLabel(workouts, NOW)).toBe('next scheduled: Tuesday arms')
+    expect(scheduleLabel(workouts, NOW)).toBe('next scheduled: [Template]')
   })
 
   it('reads "Up today" on a scheduled day', () => {
     const tuesdayMorning = new Date(2026, 9, 6, 8).getTime()
 
-    expect(scheduleLabel(workouts, tuesdayMorning)).toBe('Up today: Tuesday arms')
+    expect(scheduleLabel(workouts, tuesdayMorning)).toBe('Up today: [Template]')
   })
 
   it('is empty when nothing is scheduled', () => {

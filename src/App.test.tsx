@@ -17,7 +17,7 @@ describe('App', () => {
       within(notRun)
         .getAllByRole('heading', { level: 3 })
         .map((heading) => heading.textContent),
-    ).toEqual(['Tuesday arms', 'Wednesday bodyweight', 'Friday shoulders'])
+    ).toEqual(['[Template]'])
   })
 
   it('records a stopped run and shows it on the home screen', async () => {
@@ -26,7 +26,7 @@ describe('App', () => {
     render(<App store={store} />)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Start Tuesday arms' }),
+      await screen.findByRole('button', { name: 'Start [Template]' }),
     )
     expect(screen.getByRole('heading', { name: 'Run / stretch' })).toBeVisible()
 
@@ -39,7 +39,7 @@ describe('App', () => {
     const saved = await store.load()
     expect(saved.runs).toEqual([
       expect.objectContaining({
-        workoutName: 'Tuesday arms',
+        workoutName: '[Template]',
         completed: false,
         totalSeconds: 47 * 60,
       }),
